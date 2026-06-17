@@ -1,0 +1,44 @@
+name: GitIdentity
+
+on:
+  workflow_call:
+
+jobs:
+  git-identity:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit email privacy
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${BASE_SHA:-}" ] && [ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            range="${BASE_SHA}..${HEAD_SHA}"
+          else
+            range="${HEAD_SHA}"
+          fi
+
+          failed=0
+          while IFS='|' read -r commit role name email; do
+            [ -n "$commit" ] || continue
+            if ! printf '%s\n' "$email" | grep -Eq '^[^@[:space:]]+@users\.noreply\.github\.com$'; then
+              [ "$failed" -eq 0 ] && echo "[git-identity] GitHub noreply emailを使ってください:"
+              printf '  %s %s %s <%s>\n' "$commit" "$role" "$name" "$email"
+              failed=1
+            fi
+          done < <(
+            {
+              git log --format='%h|author|%an|%ae' "$range"
+              git log --format='%h|committer|%cn|%ce' "$range"
+            } | sort -u
+          )
+
+          exit "$failed"

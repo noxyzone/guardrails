@@ -1,0 +1,26 @@
+name: Treefmt
+
+on:
+  workflow_call:
+
+jobs:
+  treefmt:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout guardrails
+        uses: actions/checkout@v4
+        with:
+          repository: noxyzone/guardrails
+          path: .guardrails
+
+      - name: Install tools
+        run: |
+          brew install treefmt shfmt swiftformat taplo ruff
+          npm install --no-save prettier @prettier/plugin-xml prettier-plugin-go-template prettier-plugin-sh prettier-plugin-toml
+
+      - name: Run Treefmt
+        run: treefmt --ci --config-file .guardrails/treefmt.toml

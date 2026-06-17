@@ -1,0 +1,34 @@
+name: Shebang
+
+on:
+  workflow_call:
+
+jobs:
+  shebang:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check shebang style
+        run: |
+          files="$(git ls-files | while IFS= read -r path; do
+            if [[ "$path" == *.sh ]]; then
+              printf '%s\n' "$path"
+            elif [ -f "$path" ] && file "$path" | grep -q 'shell script'; then
+              printf '%s\n' "$path"
+            fi
+          done)"
+          if [ -z "$files" ]; then
+            exit 0
+          fi
+
+          failed=0
+          while IFS= read -r file; do
+            if head -1 "$file" | grep -qE '^#!/(bin|usr/bin)/(bash|sh|zsh|ksh|dash)'; then
+              echo "[shebang] /usr/bin/envを使ってください: $file" >&2
+              failed=1
+            fi
+          done <<< "$files"
+          exit "$failed"

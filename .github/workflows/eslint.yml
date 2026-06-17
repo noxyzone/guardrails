@@ -1,0 +1,22 @@
+name: ESLint
+
+on:
+  workflow_call:
+
+jobs:
+  eslint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ESLint
+        run: npm install --no-save eslint
+
+      - name: Run ESLint
+        run: |
+          files="$(git ls-files | grep -E '\.(js|cjs|mjs|ts)$' || true)"
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files" | xargs npx eslint
+          fi

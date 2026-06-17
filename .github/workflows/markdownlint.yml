@@ -1,0 +1,34 @@
+name: MarkdownLint
+
+on:
+  workflow_call:
+
+jobs:
+  markdownlint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout guardrails
+        uses: actions/checkout@v4
+        with:
+          repository: noxyzone/guardrails
+          path: .guardrails
+
+      - name: Install markdownlint-cli2
+        run: npm install -g markdownlint-cli2
+
+      - name: Run MarkdownLint
+        run: |
+          markdown_files="$(git ls-files '*.md')"
+          if [ -f .markdownlintignore ]; then
+            while IFS= read -r pattern || [ -n "$pattern" ]; do
+              [[ "$pattern" =~ ^#|^[[:space:]]*$ ]] && continue
+              markdown_files="$(printf '%s\n' "$markdown_files" | grep -v "^${pattern%/}" | grep -v "^${pattern%/}/" || true)"
+            done < .markdownlintignore
+          fi
+          if [ -n "$markdown_files" ]; then
+            printf '%s\n' "$markdown_files" | xargs markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml
+          fi

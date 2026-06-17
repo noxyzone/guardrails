@@ -1,0 +1,22 @@
+name: Ruff
+
+on:
+  workflow_call:
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ruff
+        run: pipx install ruff
+
+      - name: Run Ruff
+        run: |
+          files="$(git ls-files '*.py')"
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files" | xargs ruff check
+          fi
