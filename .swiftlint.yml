@@ -1,0 +1,46 @@
+disabled_rules:
+  - trailing_comma
+
+excluded:
+  - DerivedData
+  - .build
+  - build
+
+custom_rules:
+  no_try_optional:
+    name: "try? 禁止"
+    regex: '\btry\?'
+    message: "try? は禁止（Appleプロジェクト絶対則）。do/catch でログ出力・明示的失敗・エラー伝播・Issue.record に置き換える"
+    severity: error
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+
+cyclomatic_complexity:
+  warning: 160
+
+file_length:
+  warning: 4200
+
+function_body_length:
+  warning: 820
+
+identifier_name:
+  excluded:
+    - c
+    - i
+    - id
+    - lg
+    - md
+    - sm
+    - x
+    - xl
+    - xs
+    - y
+
+line_length:
+  warning: 260
+
+type_body_length:
+  warning: 2916

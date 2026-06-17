@@ -1,0 +1,9 @@
+--exclude DerivedData,.build,build
+--maxwidth none
+--wraparguments before-first
+--wrapcollections before-first
+--wrapparameters before-first
+--commas inline
+--trimwhitespace always
+--header ignore
+--disable redundantSelf

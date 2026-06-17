@@ -1,0 +1,36 @@
+{
+  "plugins": [
+    "@prettier/plugin-xml",
+    "prettier-plugin-go-template",
+    "prettier-plugin-sh",
+    "prettier-plugin-toml"
+  ],
+  "overrides": [
+    {
+      "files": "*.html",
+      "options": {
+        "parser": "go-template"
+      }
+    },
+    {
+      "files": ["*.xcstrings", "*.xctestplan"],
+      "options": {
+        "parser": "json"
+      }
+    },
+    {
+      "files": [
+        "*.entitlements",
+        "*.plist",
+        "*.xcscheme",
+        "*.xcworkspacedata",
+        "*.xml",
+        "*.xsd"
+      ],
+      "options": {
+        "parser": "xml",
+        "xmlWhitespaceSensitivity": "ignore"
+      }
+    }
+  ]
+}

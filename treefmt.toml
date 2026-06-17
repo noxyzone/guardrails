@@ -1,0 +1,48 @@
+[formatter.prettier]
+command = "npx"
+options = ["prettier", "--config", ".guardrails/prettier.json", "--write"]
+excludes = [".agents/skills/.system/**", "artifacts/**"]
+includes = [
+  "*.cjs",
+  "*.css",
+  "*.entitlements",
+  "*.html",
+  "*.ipynb",
+  "*.js",
+  "*.json",
+  "*.jsonc",
+  "*.md",
+  "*.mjs",
+  "*.plist",
+  "*.svg",
+  "*.ts",
+  "*.tsx",
+  "*.xcscheme",
+  "*.xcstrings",
+  "*.xctestplan",
+  "*.xcworkspacedata",
+  "*.xml",
+  "*.xsd",
+  "*.yaml",
+  "*.yml",
+]
+
+[formatter.shfmt]
+command = "shfmt"
+options = ["-w"]
+includes = ["*.sh"]
+
+[formatter.ruff]
+command = "ruff"
+options = ["format"]
+includes = ["*.py"]
+
+[formatter.taplo]
+command = "taplo"
+options = ["format"]
+includes = ["*.toml"]
+
+[formatter.swiftformat]
+command = "swiftformat"
+options = ["--config", ".guardrails/.swiftformat"]
+includes = ["*.swift"]
