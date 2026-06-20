@@ -6,18 +6,18 @@
 
 ## 共有ゲート
 
-| ゲート       | workflow                             | 主な対象                                                   | 検出・確認内容                                       |
-| ------------ | ------------------------------------ | ---------------------------------------------------------- | ---------------------------------------------------- |
-| GitIdentity  | `.github/workflows/git-identity.yml` | commit author/committer                                    | GitHub noreply email以外の公開混入                   |
-| SecretLint   | `.github/workflows/secretlint.yml`   | Git管理下の実ファイル                                      | API key、token、password、秘密鍵などの秘密情報混入   |
-| Treefmt      | `.github/workflows/treefmt.yml`      | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | 未整形差分                                           |
-| TextSpacing  | `.github/workflows/text-spacing.yml` | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース               |
-| SwiftLint    | `.github/workflows/swiftlint.yml`    | `*.swift`                                                  | SwiftLint標準ルールと`try?`禁止などの独自ルール      |
-| MarkdownLint | `.github/workflows/markdownlint.yml` | `*.md`                                                     | 見出し、リスト、空行などのMarkdown記法               |
-| ESLint       | `.github/workflows/eslint.yml`       | `*.js`、`*.cjs`、`*.mjs`、`*.ts`                           | ESLint指摘                                           |
-| Ruff         | `.github/workflows/ruff.yml`         | `*.py`                                                     | Ruff指摘                                             |
-| Shebang      | `.github/workflows/shebang.yml`      | shell script                                               | `#!/bin/bash`等を検出し、`#!/usr/bin/env bash`を要求 |
-| ShellCheck   | `.github/workflows/shellcheck.yml`   | zsh系を除くshell script                                    | ShellCheck指摘                                       |
+| ゲート       | workflow                             | 主な対象                                                   | 検出・確認内容                                             |
+| ------------ | ------------------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| GitIdentity  | `.github/workflows/git-identity.yml` | commit author/committer                                    | GitHub noreply email以外の公開混入                         |
+| SecretLint   | `.github/workflows/secretlint.yml`   | Git管理下の実ファイル                                      | API key、token、password、秘密鍵などの秘密情報混入         |
+| Treefmt      | `.github/workflows/treefmt.yml`      | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | 未整形差分                                                 |
+| TextSpacing  | `.github/workflows/text-spacing.yml` | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース                     |
+| SwiftLint    | `.github/workflows/swiftlint.yml`    | `*.swift`                                                  | SwiftLint標準ルールと`print()`・`try?`禁止などの独自ルール |
+| MarkdownLint | `.github/workflows/markdownlint.yml` | `*.md`                                                     | 見出し、リスト、空行などのMarkdown記法                     |
+| ESLint       | `.github/workflows/eslint.yml`       | `*.js`、`*.cjs`、`*.mjs`、`*.ts`                           | ESLint指摘                                                 |
+| Ruff         | `.github/workflows/ruff.yml`         | `*.py`                                                     | Ruff指摘                                                   |
+| Shebang      | `.github/workflows/shebang.yml`      | shell script                                               | `#!/bin/bash`等を検出し、`#!/usr/bin/env bash`を要求       |
+| ShellCheck   | `.github/workflows/shellcheck.yml`   | zsh系を除くshell script                                    | ShellCheck指摘                                             |
 
 ## 除外ルール
 

@@ -7,6 +7,16 @@ excluded:
   - build
 
 custom_rules:
+  no_print_call:
+    name: "print() 禁止"
+    regex: '\bprint\s*\('
+    message: "print() は禁止（Appleプロジェクト絶対則）。AppLogger.debug/info/notice/error/fault に置き換える"
+    severity: error
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string
+
   no_try_optional:
     name: "try? 禁止"
     regex: '\btry\?'
