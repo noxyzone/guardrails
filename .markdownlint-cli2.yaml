@@ -2,3 +2,5 @@ config:
   MD013: false
   MD024:
     siblings_only: true
+  # MD060はprettierのCJKテーブル整形と幅計算が衝突するため無効化（テーブル整形は正本のprettier/treefmtが担う）
+  MD060: false
