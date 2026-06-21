@@ -1,6 +1,6 @@
 [formatter.prettier]
-command = "npx"
-options = ["prettier", "--config", ".guardrails/prettier.json", "--write"]
+command = "prettier"
+options = ["--config", ".guardrails/prettier.cjs", "--write"]
 excludes = [".agents/skills/.system/**", "artifacts/**"]
 includes = [
   "*.cjs",
