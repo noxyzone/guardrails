@@ -10,7 +10,7 @@
 | ------------ | ------------------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------- |
 | GitIdentity  | `.github/workflows/git-identity.yml` | commit author/committer                                    | GitHub noreply email以外の公開混入                         |
 | SecretLint   | `.github/workflows/secretlint.yml`   | Git管理下の実ファイル                                      | API key、token、password、秘密鍵などの秘密情報混入         |
-| Treefmt      | `.github/workflows/treefmt.yml`      | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | 未整形差分                                                 |
+| Treefmt      | `.github/workflows/treefmt.yml`      | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | 未整形差分、`.swiftformat`共有symlinkの置換                |
 | TextSpacing  | `.github/workflows/text-spacing.yml` | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース                     |
 | SwiftLint    | `.github/workflows/swiftlint.yml`    | `*.swift`                                                  | SwiftLint標準ルールと`print()`・`try?`禁止などの独自ルール |
 | MarkdownLint | `.github/workflows/markdownlint.yml` | `*.md`                                                     | 見出し、リスト、空行などのMarkdown記法                     |
@@ -26,7 +26,7 @@
 - SecretLint
   symlinkと存在しないpathを除外します。
 - Treefmt
-  `treefmt.toml`に従います。現在は`.agents/skills/.system/**`、`artifacts/**`を除外します。
+  `treefmt.toml`に従います。現在は`.agents/skills/.system/**`、`artifacts/**`を除外します。repoに`.swiftformat`がある場合は、共有`config/formatters/.swiftformat`へのsymlinkだけを許可します。
 - TextSpacing
   `.claude/plugins/`、`.claude/todos/`、`.claude/cache/`、`.claude/projects/`、`.claude/plans/`、`.claude/shell-snapshots/`、`node_modules/`、`contrib/`、`artifacts/`を除外します。
 - SwiftLint

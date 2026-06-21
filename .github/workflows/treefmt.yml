@@ -22,5 +22,25 @@ jobs:
           brew install treefmt shfmt swiftformat taplo ruff
           npm install --no-save prettier @prettier/plugin-xml prettier-plugin-go-template prettier-plugin-sh prettier-plugin-toml
 
+      - name: Verify shared formatter config links
+        run: |
+          set -euo pipefail
+
+          if git ls-files --error-unmatch .swiftformat >/dev/null 2>&1; then
+            if [ ! -L .swiftformat ]; then
+              echo "::error file=.swiftformat::.swiftformat must remain a symlink to shared config/formatters/.swiftformat"
+              exit 1
+            fi
+
+            swiftformat_target="$(readlink .swiftformat)"
+            case "$swiftformat_target" in
+              *config/formatters/.swiftformat) ;;
+              *)
+                echo "::error file=.swiftformat::.swiftformat must link to shared config/formatters/.swiftformat, got: $swiftformat_target"
+                exit 1
+                ;;
+            esac
+          fi
+
       - name: Run Treefmt
         run: treefmt --ci --config-file .guardrails/treefmt.toml
