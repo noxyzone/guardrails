@@ -30,6 +30,7 @@ includes = [
 [formatter.shfmt]
 command = "shfmt"
 options = ["-w"]
+excludes = ["config/zsh/**"]
 includes = ["*.sh"]
 
 [formatter.ruff]
