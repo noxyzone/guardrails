@@ -1,0 +1,11 @@
+# prettierがパーサーを持たないファイル形式
+*.png
+*.svg
+
+# Xcodeプロジェクトファイル（構造が複雑でフォーマット不可）
+*.appiconset
+*.colorset
+*.pbxproj
+
+# MCPメモリサーバーが出力するJSONL形式ファイル
+.secretary/knowledge.json

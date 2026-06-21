@@ -47,6 +47,7 @@
 | ファイル                  | 用途                        |
 | ------------------------- | --------------------------- |
 | `.markdownlint-cli2.yaml` | MarkdownLint設定            |
+| `.markdownlintignore`     | MarkdownLint共有除外設定    |
 | `.secretlintrc.json`      | SecretLint設定              |
 | `.swiftformat`            | SwiftFormat設定             |
 | `.swiftlint.yml`          | SwiftLint設定               |

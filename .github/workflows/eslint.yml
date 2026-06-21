@@ -11,12 +11,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout guardrails
+        uses: actions/checkout@v4
+        with:
+          repository: noxyzone/guardrails
+          path: .guardrails
+
       - name: Install ESLint
-        run: npm install --no-save eslint
+        run: npm install --no-save eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser
 
       - name: Run ESLint
         run: |
           files="$(git ls-files | grep -E '\.(js|cjs|mjs|ts)$' || true)"
           if [ -n "$files" ]; then
-            printf '%s\n' "$files" | xargs npx eslint
+            printf '%s\n' "$files" | xargs npx eslint --config .guardrails/eslint.config.js --no-config-lookup
           fi

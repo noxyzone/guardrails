@@ -23,11 +23,15 @@ jobs:
       - name: Run MarkdownLint
         run: |
           markdown_files="$(git ls-files '*.md')"
-          if [ -f .markdownlintignore ]; then
+          markdownlint_ignore=".markdownlintignore"
+          if [ ! -f "$markdownlint_ignore" ]; then
+            markdownlint_ignore=".guardrails/.markdownlintignore"
+          fi
+          if [ -f "$markdownlint_ignore" ]; then
             while IFS= read -r pattern || [ -n "$pattern" ]; do
               [[ "$pattern" =~ ^#|^[[:space:]]*$ ]] && continue
               markdown_files="$(printf '%s\n' "$markdown_files" | grep -v "^${pattern%/}" | grep -v "^${pattern%/}/" || true)"
-            done < .markdownlintignore
+            done < "$markdownlint_ignore"
           fi
           if [ -n "$markdown_files" ]; then
             printf '%s\n' "$markdown_files" | xargs markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml
