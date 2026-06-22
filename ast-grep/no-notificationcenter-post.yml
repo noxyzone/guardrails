@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: no-notificationcenter-post
+message: NotificationCenterで通知を送ることは禁止。Dependency Clientなど明示的な依存へ隔離する。
+severity: error
+language: Swift
+rule:
+  pattern: NotificationCenter.default.post($$$ARGS)

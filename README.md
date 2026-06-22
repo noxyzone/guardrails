@@ -6,18 +6,19 @@
 
 ## 共有ゲート
 
-| ゲート       | workflow                             | 主な対象                                                   | 検出・確認内容                                             |
-| ------------ | ------------------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------- |
-| GitIdentity  | `.github/workflows/git-identity.yml` | commit author/committer                                    | GitHub noreply email以外の公開混入                         |
-| SecretLint   | `.github/workflows/secretlint.yml`   | Git管理下の実ファイル                                      | API key、token、password、秘密鍵などの秘密情報混入         |
-| Treefmt      | `.github/workflows/treefmt.yml`      | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | 未整形差分、repoローカル`.swiftformat`の混入               |
-| TextSpacing  | `.github/workflows/text-spacing.yml` | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース                     |
-| SwiftLint    | `.github/workflows/swiftlint.yml`    | `*.swift`                                                  | SwiftLint標準ルールと`print()`・`try?`禁止などの独自ルール |
-| MarkdownLint | `.github/workflows/markdownlint.yml` | `*.md`                                                     | 見出し、リスト、空行などのMarkdown記法                     |
-| ESLint       | `.github/workflows/eslint.yml`       | `*.js`、`*.cjs`、`*.mjs`、`*.ts`                           | ESLint指摘                                                 |
-| Ruff         | `.github/workflows/ruff.yml`         | `*.py`                                                     | Ruff指摘                                                   |
-| Shebang      | `.github/workflows/shebang.yml`      | shell script                                               | `#!/bin/bash`等を検出し、`#!/usr/bin/env bash`を要求       |
-| ShellCheck   | `.github/workflows/shellcheck.yml`   | zsh系を除くshell script                                    | ShellCheck指摘                                             |
+| ゲート       | workflow                             | 主な対象                                                   | 検出・確認内容                                                                 |
+| ------------ | ------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| GitIdentity  | `.github/workflows/git-identity.yml` | commit author/committer                                    | GitHub noreply email以外の公開混入                                             |
+| SecretLint   | `.github/workflows/secretlint.yml`   | Git管理下の実ファイル                                      | API key、token、password、秘密鍵などの秘密情報混入                             |
+| Treefmt      | `.github/workflows/treefmt.yml`      | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | 未整形差分、repoローカル`.swiftformat`の混入                                   |
+| TextSpacing  | `.github/workflows/text-spacing.yml` | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース                                         |
+| SwiftLint    | `.github/workflows/swiftlint.yml`    | `*.swift`                                                  | SwiftLint標準ルールと`print()`・`try?`禁止などの独自ルール                     |
+| MarkdownLint | `.github/workflows/markdownlint.yml` | `*.md`                                                     | 見出し、リスト、空行などのMarkdown記法                                         |
+| ESLint       | `.github/workflows/eslint.yml`       | `*.js`、`*.cjs`、`*.mjs`、`*.ts`                           | ESLint指摘                                                                     |
+| Ruff         | `.github/workflows/ruff.yml`         | `*.py`                                                     | Ruff指摘                                                                       |
+| ast-grep     | `.github/workflows/ast-grep.yml`     | `*.swift`                                                  | Swift構造ルール（通知送信、管理外型extension、UIテスト環境判定、非仮想化一覧） |
+| Shebang      | `.github/workflows/shebang.yml`      | shell script                                               | `#!/bin/bash`等を検出し、`#!/usr/bin/env bash`を要求                           |
+| ShellCheck   | `.github/workflows/shellcheck.yml`   | zsh系を除くshell script                                    | ShellCheck指摘                                                                 |
 
 ## 除外ルール
 
@@ -37,6 +38,8 @@
   明示除外はありません。対象repo側のESLint設定があればそれに従います。
 - Ruff
   明示除外はありません。対象repo側のRuff設定があればそれに従います。
+- ast-grep
+  `sgconfig.yml`と`ast-grep/*.yml`に従います。現在は`*.swift`を対象にします。
 - Shebang
   明示除外はありません。
 - ShellCheck
@@ -53,4 +56,5 @@
 | `.swiftlint.yml`          | SwiftLint設定               |
 | `eslint.config.js`        | ESLint設定                  |
 | `prettier.cjs`            | Treefmt内で使うPrettier設定 |
+| `sgconfig.yml`            | ast-grep設定                |
 | `treefmt.toml`            | Treefmt設定                 |

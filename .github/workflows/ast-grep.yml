@@ -1,0 +1,28 @@
+name: ast-grep
+
+on:
+  workflow_call:
+
+jobs:
+  ast-grep:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout guardrails
+        uses: actions/checkout@v4
+        with:
+          repository: noxyzone/guardrails
+          path: .guardrails
+
+      - name: Install ast-grep
+        run: brew install ast-grep
+
+      - name: Run ast-grep
+        run: |
+          swift_files="$(git ls-files '*.swift')"
+          if [ -n "$swift_files" ]; then
+            printf '%s\n' "$swift_files" | xargs ast-grep scan --config .guardrails/sgconfig.yml --report-style short
+          fi

@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: no-foreign-type-extension
+message: 管理外型へのextensionは禁止。自分たちが管理する型へ移すか、許可済みのDependencyValues拡張に限定する。
+severity: error
+language: Swift
+rule:
+  any:
+    - pattern: extension String { $$$BODY }
+    - pattern: extension Array { $$$BODY }
+    - pattern: extension Dictionary { $$$BODY }
+    - pattern: extension Set { $$$BODY }
+    - pattern: extension Int { $$$BODY }
+    - pattern: extension Double { $$$BODY }
+    - pattern: extension Bool { $$$BODY }
+    - pattern: extension URL { $$$BODY }
+    - pattern: extension Date { $$$BODY }
+    - pattern: extension View { $$$BODY }
