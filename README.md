@@ -31,7 +31,7 @@
 - TextSpacing
   `.claude/plugins/`、`.claude/todos/`、`.claude/cache/`、`.claude/projects/`、`.claude/plans/`、`.claude/shell-snapshots/`、`node_modules/`、`contrib/`、`artifacts/`を除外します。
 - SwiftLint
-  `.swiftlint.yml`の`excluded`に従います。現在は`DerivedData`、`.build`、`build`を除外します。
+  `.swiftlint.yml`の`excluded`に従います。現在は`DerivedData`、`.build`、`build`を除外します。SwiftLintのerrorはブロックし、warningは原則ブロックしません。禁止したいwarningは`.swiftlint.yml`でerrorへ昇格します。
 - MarkdownLint
   各repoの`.markdownlintignore`に従います。
 - ESLint

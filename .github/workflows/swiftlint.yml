@@ -22,7 +22,7 @@ jobs:
 
       - name: Run SwiftLint
         run: |
-          swift_files="$(git ls-files '*.swift')"
+          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
           if [ -n "$swift_files" ]; then
-            printf '%s\n' "$swift_files" | xargs swiftlint lint --no-cache --config .guardrails/.swiftlint.yml
+            printf '%s\n' "$swift_files" | xargs swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml
           fi
