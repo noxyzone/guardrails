@@ -26,6 +26,13 @@ jobs:
 
           failed=0
           while IFS= read -r file; do
+            if [[ "$file" == config/*.sh || "$file" == config/**/*.sh ]]; then
+              if [ ! -x "$file" ] && head -1 "$file" | grep -qE '^#!'; then
+                echo "[shebang] source用のconfig/*.shにはshebangを書かないでください: $file" >&2
+                failed=1
+                continue
+              fi
+            fi
             if head -1 "$file" | grep -qE '^#!/(bin|usr/bin)/(bash|sh|zsh|ksh|dash)'; then
               echo "[shebang] /usr/bin/envを使ってください: $file" >&2
               failed=1
