@@ -12,6 +12,7 @@
 | SecretLint   | `.github/workflows/secretlint.yml`   | Git管理下の実ファイル                                      | API key、token、password、秘密鍵などの秘密情報混入                             |
 | Treefmt      | `.github/workflows/treefmt.yml`      | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | 未整形差分、repoローカル`.swiftformat`の混入                                   |
 | TextSpacing  | `.github/workflows/text-spacing.yml` | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース                                         |
+| Localization | `.github/workflows/localization.yml` | `*.xcstrings`、SwiftのAppKit/独自UI入口                    | 日本語ローカライズ欠落、SwiftUI自動抽出に乗らないUI文字列の直書き              |
 | SwiftLint    | `.github/workflows/swiftlint.yml`    | `*.swift`                                                  | SwiftLint標準ルールと`print()`・`try?`禁止などの独自ルール                     |
 | MarkdownLint | `.github/workflows/markdownlint.yml` | `*.md`                                                     | 見出し、リスト、空行などのMarkdown記法                                         |
 | ESLint       | `.github/workflows/eslint.yml`       | `*.js`、`*.cjs`、`*.mjs`、`*.ts`                           | ESLint指摘                                                                     |
@@ -30,6 +31,8 @@
   `treefmt.toml`に従います。現在は`.agents/skills/.system/**`、`artifacts/**`を除外します。repoローカルの`.swiftformat`は許可せず、共有`guardrails/.swiftformat`を使います。
 - TextSpacing
   `.claude/plugins/`、`.claude/todos/`、`.claude/cache/`、`.claude/projects/`、`.claude/plans/`、`.claude/shell-snapshots/`、`node_modules/`、`contrib/`、`artifacts/`を除外します。
+- Localization
+  `sourceLanguage`が`en`で、`extractionState`が`stale`ではない英語source keyに`ja`ローカライズを要求します。URL、絶対path、`HEAD@{}`、記号/数値/format placeholderのみのキーは除外します。SwiftUI自動抽出に乗らない`NSMenuItem(title:)`、`Action(title:)`、`panel.title/message`、`column.title`の直書きを検出します。
 - SwiftLint
   `.swiftlint.yml`の`excluded`に従います。現在は`DerivedData`、`.build`、`build`を除外します。SwiftLintのerrorはブロックし、warningは原則ブロックしません。禁止したいwarningは`.swiftlint.yml`でerrorへ昇格します。
 - MarkdownLint
