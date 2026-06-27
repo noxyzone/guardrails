@@ -62,7 +62,7 @@ is_target_file() {
 
 is_excluded_file() {
 	case "$1" in
-	.claude/plugins/* | .claude/todos/* | .claude/cache/* | .claude/projects/* | .claude/plans/* | .claude/shell-snapshots/* | node_modules/* | contrib/* | artifacts/*)
+	.claude/plugins/* | .claude/todos/* | .claude/cache/* | .claude/projects/* | .claude/plans/* | .claude/shell-snapshots/* | node_modules/* | contrib/* | artifacts/* | pipedream/html/*)
 		return 0
 		;;
 	esac
