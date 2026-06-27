@@ -11,38 +11,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout guardrails
+        uses: actions/checkout@v4
+        with:
+          repository: noxyzone/guardrails
+          path: .guardrails
+
       - name: Check Japanese alphanumeric spacing
         run: |
-          files="$(git ls-files | grep -E '\.(md|txt|toml|yaml|yml|json|jsonc|html|css)$' | grep -vE '^(\.claude/plugins|\.claude/todos|\.claude/cache|\.claude/projects|\.claude/plans|\.claude/shell-snapshots|node_modules|contrib|artifacts)/' || true)"
-          if [ -z "$files" ]; then
-            exit 0
-          fi
-
-          found=0
-          while IFS= read -r file; do
-            [ -f "$file" ] || continue
-            in_block=0
-            line_number=0
-            while IFS= read -r line || [ -n "$line" ]; do
-              line_number=$((line_number + 1))
-              case "$line" in
-              '```'*)
-                if [ "$in_block" -eq 0 ]; then
-                  in_block=1
-                else
-                  in_block=0
-                fi
-                continue
-                ;;
-              esac
-              [ "$in_block" -eq 1 ] && continue
-              cleaned="$(printf '%s\n' "$line" | sed -E 's/`[^`]+`//g; s#https?://[^[:space:]]+##g')"
-              if printf '%s\n' "$cleaned" | grep -nP '[\p{Hiragana}\p{Katakana}\p{Han}] [A-Za-z0-9]|[A-Za-z0-9] [\p{Hiragana}\p{Katakana}\p{Han}]' >/dev/null; then
-                [ "$found" -eq 0 ] && echo "[text-spacing] 和欧間スペース違反:"
-                printf '  %s:%s:%s\n' "$file" "$line_number" "$line"
-                found=1
-              fi
-            done < "$file"
-          done <<< "$files"
-
-          exit "$found"
+          .guardrails/scripts/text-spacing-check.sh --all --repo "$GITHUB_WORKSPACE"

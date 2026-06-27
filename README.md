@@ -21,6 +21,16 @@
 | Shebang      | `.github/workflows/shebang.yml`      | shell script                                               | `#!/bin/bash`等を検出し、`#!/usr/bin/env bash`を要求                           |
 | ShellCheck   | `.github/workflows/shellcheck.yml`   | zsh系を除くshell script                                    | ShellCheck指摘                                                                 |
 
+## ローカル確認
+
+TextSpacingはCIとローカル確認で同じ実装を使います。完了前の全量確認では次を実行します。
+
+```bash
+scripts/text-spacing-check.sh --all --repo /path/to/repo
+```
+
+pre-commitでは同じスクリプトを`--staged`で呼び、staged fileだけを補助的に確認します。
+
 ## 除外ルール
 
 - GitIdentity
