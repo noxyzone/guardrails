@@ -6,6 +6,9 @@ on:
 jobs:
   treefmt:
     runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -34,4 +37,4 @@ jobs:
       - name: Run Treefmt
         run: |
           export PATH="$PWD/node_modules/.bin:$PATH"
-          treefmt --ci --config-file .guardrails/treefmt.toml
+          .guardrails/scripts/treefmt-check.sh --check --repo "$GITHUB_WORKSPACE"
