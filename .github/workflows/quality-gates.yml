@@ -1,0 +1,384 @@
+name: QualityGates
+
+on:
+  workflow_call:
+
+jobs:
+  detect_changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      any: ${{ steps.changed.outputs.any }}
+      eslint: ${{ steps.changed.outputs.eslint }}
+      localization: ${{ steps.changed.outputs.localization }}
+      markdownlint: ${{ steps.changed.outputs.markdownlint }}
+      ruff: ${{ steps.changed.outputs.ruff }}
+      secretlint: ${{ steps.changed.outputs.secretlint }}
+      shell: ${{ steps.changed.outputs.shell }}
+      swift: ${{ steps.changed.outputs.swift }}
+      text_spacing: ${{ steps.changed.outputs.text_spacing }}
+      treefmt_non_swift: ${{ steps.changed.outputs.treefmt_non_swift }}
+      ubuntu: ${{ steps.changed.outputs.ubuntu }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed files
+        id: changed
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          if [ -n "$base_sha" ] && [ "$base_sha" != "0000000000000000000000000000000000000000" ]; then
+            changed_files="$(git diff --name-only --diff-filter=ACMRT "$base_sha" "$head_sha" || true)"
+          else
+            changed_files="$(git ls-files)"
+          fi
+
+          has_changed() {
+            local pattern="$1"
+            [ -n "$changed_files" ] && printf '%s\n' "$changed_files" | grep -Eq "$pattern"
+          }
+
+          bool_for() {
+            if has_changed "$1"; then
+              printf '%s\n' true
+            else
+              printf '%s\n' false
+            fi
+          }
+
+          any="$(bool_for '.+')"
+          eslint="$(bool_for '\.(cjs|js|mjs|ts)$')"
+          localization="$(bool_for '\.(swift|xcstrings)$')"
+          markdownlint="$(bool_for '\.md$')"
+          ruff="$(bool_for '\.py$')"
+          shell="$(bool_for '\.sh$')"
+          swift="$(bool_for '\.swift$')"
+          text_spacing="$(bool_for '\.(css|html|json|jsonc|md|toml|txt|yaml|yml)$')"
+          treefmt_non_swift="$(bool_for '\.(cjs|css|entitlements|html|ipynb|js|json|jsonc|md|mjs|plist|py|sh|svg|toml|ts|tsx|xcscheme|xcstrings|xctestplan|xcworkspacedata|xml|xsd|yaml|yml)$')"
+          secretlint="$any"
+
+          ubuntu=false
+          for needed in "$eslint" "$localization" "$markdownlint" "$ruff" "$secretlint" "$shell" "$text_spacing" "$treefmt_non_swift"; do
+            if [ "$needed" = true ]; then
+              ubuntu=true
+            fi
+          done
+
+          {
+            printf 'any=%s\n' "$any"
+            printf 'eslint=%s\n' "$eslint"
+            printf 'localization=%s\n' "$localization"
+            printf 'markdownlint=%s\n' "$markdownlint"
+            printf 'ruff=%s\n' "$ruff"
+            printf 'secretlint=%s\n' "$secretlint"
+            printf 'shell=%s\n' "$shell"
+            printf 'swift=%s\n' "$swift"
+            printf 'text_spacing=%s\n' "$text_spacing"
+            printf 'treefmt_non_swift=%s\n' "$treefmt_non_swift"
+            printf 'ubuntu=%s\n' "$ubuntu"
+          } >> "$GITHUB_OUTPUT"
+
+  ubuntu_guardrails:
+    if: ${{ needs.detect_changes.outputs.ubuntu == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - detect_changes
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout guardrails
+        uses: actions/checkout@v4
+        with:
+          repository: noxyzone/guardrails
+          path: .guardrails
+
+      - name: Install apt tools
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y jq shellcheck shfmt
+
+      - name: Install npm tools
+        if: ${{ needs.detect_changes.outputs.eslint == 'true' || needs.detect_changes.outputs.markdownlint == 'true' || needs.detect_changes.outputs.secretlint == 'true' || needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
+        run: |
+          set -euo pipefail
+
+          npm install --no-save eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser markdownlint-cli2 secretlint@13.0.2 @secretlint/secretlint-rule-preset-recommend@13.0.2 prettier @prettier/plugin-xml prettier-plugin-go-template prettier-plugin-sh prettier-plugin-toml
+
+      - name: Install Ruff
+        if: ${{ needs.detect_changes.outputs.ruff == 'true' || needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
+        run: |
+          set -euo pipefail
+
+          pipx install ruff
+
+      - name: Install Treefmt tools
+        if: ${{ needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
+        run: |
+          set -euo pipefail
+
+          curl -LsSf https://github.com/numtide/treefmt/releases/download/v2.3.0/treefmt-x86_64-unknown-linux-musl.tar.gz -o treefmt.tar.gz
+          tar xzf treefmt.tar.gz
+          sudo install treefmt /usr/local/bin/treefmt
+          curl -LsSf https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-full-linux-x86_64.gz -o taplo.gz
+          gzip -d taplo.gz
+          sudo install taplo /usr/local/bin/taplo
+
+      - name: Run SecretLint
+        if: ${{ needs.detect_changes.outputs.secretlint == 'true' }}
+        run: |
+          set -euo pipefail
+
+          files="$(git ls-files | while IFS= read -r path; do
+            [ -L "$path" ] || [ ! -e "$path" ] || printf '%s\n' "$path"
+          done)"
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files" | xargs npx secretlint --secretlintrc .guardrails/.secretlintrc.json
+          fi
+
+      - name: Run Treefmt
+        if: ${{ needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
+        run: |
+          set -euo pipefail
+
+          export PATH="$HOME/.local/bin:$PWD/node_modules/.bin:$PATH"
+          .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE"
+
+      - name: Run TextSpacing
+        if: ${{ needs.detect_changes.outputs.text_spacing == 'true' }}
+        run: |
+          set -euo pipefail
+
+          .guardrails/scripts/text-spacing-check.sh --all --repo "$GITHUB_WORKSPACE"
+
+      - name: Run Localization
+        if: ${{ needs.detect_changes.outputs.localization == 'true' }}
+        run: |
+          set -euo pipefail
+
+          found=0
+
+          xcstrings_files="$(git ls-files '*.xcstrings' || true)"
+          if [ -n "$xcstrings_files" ]; then
+            while IFS= read -r file; do
+              [ -f "$file" ] || continue
+              missing="$(
+                jq -r '
+                  select((.sourceLanguage // "en") == "en")
+                  | .strings
+                  | to_entries[]
+                  | select(.value.extractionState != "stale")
+                  | select(.key | test("[A-Za-z]"))
+                  | select(.key | test("[ぁ-んァ-ン一-龯]") | not)
+                  | select(.key | test("^(https?://|/|HEAD@\\{|[-+~]?[0-9%@{}._/: -]+$)") | not)
+                  | select(((.value.localizations // {}) | has("ja")) | not)
+                  | .key
+                ' "$file"
+              )"
+              if [ -n "$missing" ]; then
+                [ "$found" -eq 0 ] && echo "[localization] Localizable.xcstringsのja未登録キー:"
+                while IFS= read -r key; do
+                  printf '  %s: %s\n' "$file" "$key"
+                done <<< "$missing"
+                found=1
+              fi
+            done <<< "$xcstrings_files"
+          fi
+
+          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**' || true)"
+          if [ -n "$swift_files" ]; then
+            appkit_matches="$(
+              while IFS= read -r file; do
+                [ -f "$file" ] || continue
+                grep -nE 'NSMenuItem[[:space:]]*\([[:space:]]*title:[[:space:]]*"|Action[[:space:]]*\([[:space:]]*title:[[:space:]]*"|panel\.(title|message)[[:space:]]*=[[:space:]]*"|column\.title[[:space:]]*=[[:space:]]*"' "$file" | sed "s#^#$file:#" || true
+              done <<< "$swift_files"
+            )"
+            if [ -n "$appkit_matches" ]; then
+              [ "$found" -eq 0 ] && echo "[localization] SwiftUI自動抽出に乗らないUI文字列:"
+              printf '%s\n' "$appkit_matches" | sed 's/^/  /'
+              found=1
+            fi
+          fi
+
+          exit "$found"
+
+      - name: Run MarkdownLint
+        if: ${{ needs.detect_changes.outputs.markdownlint == 'true' }}
+        run: |
+          set -euo pipefail
+
+          markdown_files="$(git ls-files '*.md')"
+          markdownlint_ignore=".markdownlintignore"
+          if [ ! -f "$markdownlint_ignore" ]; then
+            markdownlint_ignore=".guardrails/.markdownlintignore"
+          fi
+          if [ -f "$markdownlint_ignore" ]; then
+            while IFS= read -r pattern || [ -n "$pattern" ]; do
+              [[ "$pattern" =~ ^#|^[[:space:]]*$ ]] && continue
+              markdown_files="$(printf '%s\n' "$markdown_files" | grep -v "^${pattern%/}" | grep -v "^${pattern%/}/" || true)"
+            done < "$markdownlint_ignore"
+          fi
+          if [ -n "$markdown_files" ]; then
+            printf '%s\n' "$markdown_files" | xargs npx markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml
+          fi
+
+      - name: Run ESLint
+        if: ${{ needs.detect_changes.outputs.eslint == 'true' }}
+        run: |
+          set -euo pipefail
+
+          files="$(git ls-files | grep -E '\.(js|cjs|mjs|ts)$' || true)"
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files" | xargs npx eslint --config .guardrails/eslint.config.js --no-config-lookup
+          fi
+
+      - name: Run Ruff
+        if: ${{ needs.detect_changes.outputs.ruff == 'true' }}
+        run: |
+          set -euo pipefail
+
+          files="$(git ls-files '*.py')"
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files" | xargs ruff check
+          fi
+
+      - name: Run Shebang
+        if: ${{ needs.detect_changes.outputs.shell == 'true' }}
+        run: |
+          set -euo pipefail
+
+          files="$(git ls-files | while IFS= read -r path; do
+            if [[ "$path" == *.sh ]]; then
+              printf '%s\n' "$path"
+            elif [ -f "$path" ] && file "$path" | grep -q 'shell script'; then
+              printf '%s\n' "$path"
+            fi
+          done)"
+          if [ -z "$files" ]; then
+            exit 0
+          fi
+
+          failed=0
+          while IFS= read -r file; do
+            if [[ "$file" == config/*.sh || "$file" == config/**/*.sh ]]; then
+              if [ ! -x "$file" ] && head -1 "$file" | grep -qE '^#!'; then
+                echo "[shebang] source用のconfig/*.shにはshebangを書かないでください: $file" >&2
+                failed=1
+                continue
+              fi
+            fi
+            if head -1 "$file" | grep -qE '^#!/(bin|usr/bin)/(bash|sh|zsh|ksh|dash)'; then
+              echo "[shebang] /usr/bin/envを使ってください: $file" >&2
+              failed=1
+            fi
+          done <<< "$files"
+          exit "$failed"
+
+      - name: Run ShellCheck
+        if: ${{ needs.detect_changes.outputs.shell == 'true' }}
+        run: |
+          set -euo pipefail
+
+          files="$(git ls-files | while IFS= read -r path; do
+            if [[ "$path" == *.sh ]] && [[ "$path" != */zsh/* ]]; then
+              printf '%s\n' "$path"
+            elif [ -f "$path" ] && file "$path" | grep -q 'shell script' && file "$path" | grep -qv 'zsh'; then
+              printf '%s\n' "$path"
+            fi
+          done)"
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files" | xargs shellcheck
+          fi
+
+  macos_guardrails:
+    if: ${{ needs.detect_changes.outputs.swift == 'true' }}
+    runs-on: macos-15
+    timeout-minutes: 10
+    needs:
+      - detect_changes
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout guardrails
+        uses: actions/checkout@v4
+        with:
+          repository: noxyzone/guardrails
+          path: .guardrails
+
+      - name: Install Swift tools
+        run: |
+          set -euo pipefail
+
+          brew install swiftformat swiftlint
+
+      - name: Run SwiftLint
+        run: |
+          set -euo pipefail
+
+          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
+          if [ -n "$swift_files" ]; then
+            printf '%s\n' "$swift_files" | xargs swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml
+          fi
+
+      - name: Verify shared formatter config links
+        run: |
+          set -euo pipefail
+
+          if git ls-files --error-unmatch .swiftformat >/dev/null 2>&1; then
+            echo "::error file=.swiftformat::.swiftformat must not be tracked. Shared SwiftFormat config is provided by noxyzone/guardrails."
+            exit 1
+          fi
+
+      - name: Run SwiftFormat
+        run: |
+          set -euo pipefail
+
+          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
+          if [ -n "$swift_files" ]; then
+            printf '%s\n' "$swift_files" | xargs swiftformat --lint --config .guardrails/.swiftformat
+          fi
+
+  quality_gates:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - detect_changes
+      - ubuntu_guardrails
+      - macos_guardrails
+    permissions:
+      contents: read
+    steps:
+      - name: Confirm guardrail jobs
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ needs.detect_changes.result }}" != "success" ]]; then
+            echo "::error::detect-changes job did not succeed"
+            exit 1
+          fi
+          for result in "${{ needs.ubuntu_guardrails.result }}" "${{ needs.macos_guardrails.result }}"; do
+            case "$result" in
+              success|skipped) ;;
+              *)
+                echo "::error::guardrail job did not succeed: $result"
+                exit 1
+                ;;
+            esac
+          done
+          echo "Quality gates completed"

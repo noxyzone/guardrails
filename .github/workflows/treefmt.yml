@@ -4,8 +4,8 @@ on:
   workflow_call:
 
 jobs:
-  treefmt:
-    runs-on: macos-15
+  treefmt-non-swift:
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
@@ -22,7 +22,17 @@ jobs:
 
       - name: Install tools
         run: |
-          brew install treefmt shfmt swiftformat taplo ruff
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y shfmt
+          curl -LsSf https://github.com/numtide/treefmt/releases/download/v2.3.0/treefmt-x86_64-unknown-linux-musl.tar.gz -o treefmt.tar.gz
+          tar xzf treefmt.tar.gz
+          sudo install treefmt /usr/local/bin/treefmt
+          curl -LsSf https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-full-linux-x86_64.gz -o taplo.gz
+          gzip -d taplo.gz
+          sudo install taplo /usr/local/bin/taplo
+          pipx install ruff
           npm install --no-save prettier @prettier/plugin-xml prettier-plugin-go-template prettier-plugin-sh prettier-plugin-toml
 
       - name: Verify shared formatter config links
@@ -36,5 +46,72 @@ jobs:
 
       - name: Run Treefmt
         run: |
-          export PATH="$PWD/node_modules/.bin:$PATH"
-          .guardrails/scripts/treefmt-check.sh --check --repo "$GITHUB_WORKSPACE"
+          set -euo pipefail
+
+          export PATH="$HOME/.local/bin:$PWD/node_modules/.bin:$PATH"
+          .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE"
+
+  swiftformat:
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout guardrails
+        uses: actions/checkout@v4
+        with:
+          repository: noxyzone/guardrails
+          path: .guardrails
+
+      - name: Install SwiftFormat
+        run: |
+          set -euo pipefail
+
+          brew install swiftformat
+
+      - name: Verify shared formatter config links
+        run: |
+          set -euo pipefail
+
+          if git ls-files --error-unmatch .swiftformat >/dev/null 2>&1; then
+            echo "::error file=.swiftformat::.swiftformat must not be tracked. Shared SwiftFormat config is provided by noxyzone/guardrails."
+            exit 1
+          fi
+
+      - name: Run SwiftFormat
+        run: |
+          set -euo pipefail
+
+          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
+          if [ -n "$swift_files" ]; then
+            printf '%s\n' "$swift_files" | xargs swiftformat --lint --config .guardrails/.swiftformat
+          fi
+
+  treefmt:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - treefmt-non-swift
+      - swiftformat
+    permissions:
+      contents: read
+
+    steps:
+      - name: Confirm formatter jobs
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ needs.treefmt-non-swift.result }}" != "success" ]]; then
+            echo "::error::treefmt-non-swift job did not succeed"
+            exit 1
+          fi
+          if [[ "${{ needs.swiftformat.result }}" != "success" ]]; then
+            echo "::error::swiftformat job did not succeed"
+            exit 1
+          fi
+          echo "Treefmt and SwiftFormat checks completed"
