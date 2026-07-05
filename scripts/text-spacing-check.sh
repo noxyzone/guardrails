@@ -28,12 +28,21 @@ done
 
 [ -n "$MODE" ] || usage
 
-if command -v ggrep >/dev/null 2>&1; then
+supports_grep_p() {
+	local grep_cmd="$1"
+	printf 'あ A\n' | "$grep_cmd" -P '[\p{Hiragana}\p{Katakana}\p{Han}] [A-Za-z0-9]' >/dev/null 2>&1
+}
+
+if [ -x /run/current-system/sw/bin/grep ] && supports_grep_p /run/current-system/sw/bin/grep; then
+	GREP_CMD="/run/current-system/sw/bin/grep"
+elif [ -x /opt/homebrew/bin/ggrep ] && supports_grep_p /opt/homebrew/bin/ggrep; then
+	GREP_CMD="/opt/homebrew/bin/ggrep"
+elif command -v ggrep >/dev/null 2>&1 && supports_grep_p ggrep; then
 	GREP_CMD="ggrep"
-elif printf 'あ A\n' | grep -P '[\p{Hiragana}\p{Katakana}\p{Han}] [A-Za-z0-9]' >/dev/null 2>&1; then
+elif command -v grep >/dev/null 2>&1 && supports_grep_p grep; then
 	GREP_CMD="grep"
 else
-	echo "text-spacing-check.sh: GNU grep with -P support is required (install Homebrew grep for ggrep)" >&2
+	echo "text-spacing-check.sh: GNU grep with -P support is required (run scripts/install/nix-darwin-apply.sh)" >&2
 	exit 2
 fi
 
