@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export LC_ALL="${TEXT_SPACING_LOCALE:-C.UTF-8}"
+
 usage() {
 	echo "usage: text-spacing-check.sh (--all|--staged) [--repo PATH]" >&2
 	exit 2
