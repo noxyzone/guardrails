@@ -11,6 +11,7 @@ jobs:
       contents: read
     outputs:
       any: ${{ steps.changed.outputs.any }}
+      ast_grep: ${{ steps.changed.outputs.ast_grep }}
       eslint: ${{ steps.changed.outputs.eslint }}
       localization: ${{ steps.changed.outputs.localization }}
       markdownlint: ${{ steps.changed.outputs.markdownlint }}
@@ -20,6 +21,7 @@ jobs:
       swift: ${{ steps.changed.outputs.swift }}
       text_spacing: ${{ steps.changed.outputs.text_spacing }}
       treefmt_non_swift: ${{ steps.changed.outputs.treefmt_non_swift }}
+      typos: ${{ steps.changed.outputs.typos }}
       ubuntu: ${{ steps.changed.outputs.ubuntu }}
     steps:
       - name: Checkout repository
@@ -54,6 +56,7 @@ jobs:
           }
 
           any="$(bool_for '.+')"
+          ast_grep="$(bool_for '\.swift$')"
           eslint="$(bool_for '\.(cjs|js|mjs|ts)$')"
           localization="$(bool_for '\.(swift|xcstrings)$')"
           markdownlint="$(bool_for '\.md$')"
@@ -63,9 +66,10 @@ jobs:
           text_spacing="$(bool_for '\.(css|html|json|jsonc|md|toml|txt|yaml|yml)$')"
           treefmt_non_swift="$(bool_for '\.(cjs|css|entitlements|html|ipynb|js|json|jsonc|md|mjs|plist|py|sh|svg|toml|ts|tsx|xcscheme|xcstrings|xctestplan|xcworkspacedata|xml|xsd|yaml|yml)$')"
           secretlint="$any"
+          typos="$any"
 
           ubuntu=false
-          for needed in "$eslint" "$localization" "$markdownlint" "$ruff" "$secretlint" "$shell" "$text_spacing" "$treefmt_non_swift"; do
+          for needed in "$eslint" "$localization" "$markdownlint" "$ruff" "$secretlint" "$shell" "$text_spacing" "$treefmt_non_swift" "$typos"; do
             if [ "$needed" = true ]; then
               ubuntu=true
             fi
@@ -73,6 +77,7 @@ jobs:
 
           {
             printf 'any=%s\n' "$any"
+            printf 'ast_grep=%s\n' "$ast_grep"
             printf 'eslint=%s\n' "$eslint"
             printf 'localization=%s\n' "$localization"
             printf 'markdownlint=%s\n' "$markdownlint"
@@ -82,6 +87,7 @@ jobs:
             printf 'swift=%s\n' "$swift"
             printf 'text_spacing=%s\n' "$text_spacing"
             printf 'treefmt_non_swift=%s\n' "$treefmt_non_swift"
+            printf 'typos=%s\n' "$typos"
             printf 'ubuntu=%s\n' "$ubuntu"
           } >> "$GITHUB_OUTPUT"
 
@@ -162,6 +168,13 @@ jobs:
           set -euo pipefail
 
           .guardrails/scripts/text-spacing-check.sh --all --repo "$GITHUB_WORKSPACE"
+
+      - name: Run Typos
+        if: ${{ needs.detect_changes.outputs.typos == 'true' }}
+        uses: crate-ci/typos@v1.48.0
+        with:
+          config: .guardrails/typos.toml
+          isolated: true
 
       - name: Run Localization
         if: ${{ needs.detect_changes.outputs.localization == 'true' }}
@@ -324,7 +337,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          brew install swiftformat swiftlint
+          brew install ast-grep swiftformat swiftlint
+
+      - name: Run ast-grep
+        if: ${{ needs.detect_changes.outputs.ast_grep == 'true' }}
+        run: |
+          set -euo pipefail
+
+          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
+          if [ -n "$swift_files" ]; then
+            printf '%s\n' "$swift_files" | xargs ast-grep scan --config .guardrails/sgconfig.yml --report-style short
+          fi
 
       - name: Run SwiftLint
         run: |

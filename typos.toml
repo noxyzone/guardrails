@@ -1,0 +1,18 @@
+[files]
+extend-exclude = [
+  ".claude/cache/",
+  ".claude/plans/",
+  ".claude/plugins/",
+  ".claude/projects/",
+  ".claude/shell-snapshots/",
+  ".claude/todos/",
+  ".codex/cache/",
+  "artifacts/",
+  "contrib/",
+  "node_modules/",
+  "pipedream/html/",
+]
+
+[default]
+check-filename = true
+check-file = true

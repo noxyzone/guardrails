@@ -1,0 +1,27 @@
+name: Typos
+
+on:
+  workflow_call:
+
+jobs:
+  typos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout guardrails
+        uses: actions/checkout@v4
+        with:
+          repository: noxyzone/guardrails
+          path: .guardrails
+
+      - name: Run Typos
+        uses: crate-ci/typos@v1.48.0
+        with:
+          config: .guardrails/typos.toml
+          isolated: true
