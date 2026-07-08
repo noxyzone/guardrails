@@ -27,6 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Detect changed files
@@ -102,12 +103,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Checkout guardrails
         uses: actions/checkout@v4
         with:
           repository: noxyzone/guardrails
+          ref: ${{ github.workflow_sha }}
           path: .guardrails
+          persist-credentials: false
 
       - name: Install apt tools
         run: |
@@ -326,12 +331,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Checkout guardrails
         uses: actions/checkout@v4
         with:
           repository: noxyzone/guardrails
+          ref: ${{ github.workflow_sha }}
           path: .guardrails
+          persist-credentials: false
 
       - name: Install Swift tools
         run: |
