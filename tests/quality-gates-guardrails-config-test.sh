@@ -6,6 +6,9 @@ WORKFLOW="$ROOT_DIR/.github/workflows/quality-gates.yml"
 
 # shellcheck disable=SC2016
 for required in \
+	'guardrails-ref:' \
+	'required: true' \
+	'ref: \$\{\{ inputs\.guardrails-ref \}\}' \
 	'ast_grep: \$\{\{ steps\.changed\.outputs\.ast_grep \}\}' \
 	'ast_grep="\$\(bool_for '\''\\\.swift\$'\''\)"' \
 	'printf '\''ast_grep=%s\\n'\'' "\$ast_grep"' \

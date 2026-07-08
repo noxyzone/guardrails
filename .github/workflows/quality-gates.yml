@@ -2,6 +2,11 @@ name: QualityGates
 
 on:
   workflow_call:
+    inputs:
+      guardrails-ref:
+        description: Revision of noxyzone/guardrails to checkout for shared guardrail assets.
+        required: true
+        type: string
 
 jobs:
   detect_changes:
@@ -110,7 +115,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: noxyzone/guardrails
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ inputs.guardrails-ref }}
           path: .guardrails
           persist-credentials: false
 
@@ -338,7 +343,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: noxyzone/guardrails
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ inputs.guardrails-ref }}
           path: .guardrails
           persist-credentials: false
 
