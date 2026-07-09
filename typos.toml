@@ -11,8 +11,13 @@ extend-exclude = [
   "contrib/",
   "node_modules/",
   "pipedream/html/",
+  "Vendor/",
 ]
 
 [default]
 check-filename = true
 check-file = true
+extend-ignore-re = ["[0-9a-f]{7,40}"]
+
+[default.extend-identifiers]
+ND = "ND"
