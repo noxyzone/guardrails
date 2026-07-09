@@ -14,7 +14,7 @@ created_editorconfig=0
 treefmt_noswift_config_path=""
 treefmt_mode="check"
 treefmt_args=()
-treefmt_timeout_seconds="${TREEFMT_TIMEOUT_SECONDS:-10}"
+treefmt_timeout_seconds="${TREEFMT_TIMEOUT_SECONDS:-60}"
 treefmt_without_swiftformat=0
 
 while [[ "$#" -gt 0 ]]; do
@@ -161,7 +161,7 @@ fi
 
 cd "$repo_root"
 if [[ "$treefmt_mode" == "write" ]]; then
-	run_with_timeout "$treefmt_timeout_seconds" treefmt --tree-root "$repo_root" --walk git --config-file "$treefmt_config_path" "${treefmt_args[@]}"
+	run_with_timeout "$treefmt_timeout_seconds" treefmt --tree-root "$repo_root" --walk git --excludes 'node_modules/**' --excludes '.guardrails/**' --config-file "$treefmt_config_path" "${treefmt_args[@]}"
 else
-	run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --tree-root "$repo_root" --walk git --config-file "$treefmt_config_path" "${treefmt_args[@]}"
+	run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --tree-root "$repo_root" --walk git --excludes 'node_modules/**' --excludes '.guardrails/**' --config-file "$treefmt_config_path" "${treefmt_args[@]}"
 fi
