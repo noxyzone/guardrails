@@ -161,7 +161,7 @@ fi
 
 cd "$repo_root"
 if [[ "$treefmt_mode" == "write" ]]; then
-	run_with_timeout "$treefmt_timeout_seconds" treefmt --tree-root "$repo_root" --config-file "$treefmt_config_path" "${treefmt_args[@]}"
+	run_with_timeout "$treefmt_timeout_seconds" treefmt --tree-root "$repo_root" --walk git --config-file "$treefmt_config_path" "${treefmt_args[@]}"
 else
-	run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --tree-root "$repo_root" --config-file "$treefmt_config_path" "${treefmt_args[@]}"
+	run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --tree-root "$repo_root" --walk git --config-file "$treefmt_config_path" "${treefmt_args[@]}"
 fi
