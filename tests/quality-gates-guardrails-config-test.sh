@@ -15,7 +15,10 @@ for required in \
 	'printf '\''ast_grep=%s\\n'\'' "\$ast_grep"' \
 	'brew install ast-grep swiftformat swiftlint' \
 	'GH_TOKEN: \$\{\{ github\.token \}\}' \
-	'gh release download v2\.3\.0 --repo numtide/treefmt --pattern treefmt_2\.3\.0_linux_amd64\.tar\.gz --output treefmt\.tar\.gz' \
+	'treefmt_tmp="\$\(mktemp -d\)"' \
+	'gh release download v2\.3\.0 --repo numtide/treefmt --pattern treefmt_2\.3\.0_linux_amd64\.tar\.gz --output "\$treefmt_tmp/treefmt\.tar\.gz"' \
+	'tar xzf "\$treefmt_tmp/treefmt\.tar\.gz" -C "\$treefmt_tmp"' \
+	'sudo install "\$treefmt_tmp/treefmt" /usr/local/bin/treefmt' \
 	'gh release download v3\.13\.1 --repo mvdan/sh --pattern shfmt_v3\.13\.1_linux_amd64 --output shfmt' \
 	'gh release download 0\.10\.0 --repo tamasfe/taplo --pattern taplo-linux-x86_64\.gz --output taplo\.gz' \
 	'prettier@3\.9\.4' \
@@ -30,6 +33,11 @@ for required in \
 		exit 1
 	fi
 done
+
+if rg -q 'tar xzf treefmt\.tar\.gz' "$WORKFLOW"; then
+	echo "FAIL: QualityGates must not extract treefmt release assets in the repository root" >&2
+	exit 1
+fi
 
 if rg -q 'git diff --name-only --diff-filter=ACMRT .* \|\| true' "$WORKFLOW"; then
 	echo "FAIL: QualityGates must not swallow git diff failures in change detection" >&2
