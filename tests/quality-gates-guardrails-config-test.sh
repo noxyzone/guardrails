@@ -16,6 +16,7 @@ for required in \
 	'brew install ast-grep swiftformat swiftlint' \
 	'GH_TOKEN: \$\{\{ github\.token \}\}' \
 	'gh release download v2\.3\.0 --repo numtide/treefmt --pattern treefmt_2\.3\.0_linux_amd64\.tar\.gz --output treefmt\.tar\.gz' \
+	'gh release download 0\.10\.0 --repo tamasfe/taplo --pattern taplo-linux-x86_64\.gz --output taplo\.gz' \
 	'needs\.detect_changes\.outputs\.ast_grep == '\''true'\''' \
 	'ast-grep scan --config \.guardrails/sgconfig\.yml --report-style short'; do
 	if ! rg -q "$required" "$WORKFLOW"; then

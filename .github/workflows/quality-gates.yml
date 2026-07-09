@@ -150,7 +150,7 @@ jobs:
           gh release download v2.3.0 --repo numtide/treefmt --pattern treefmt_2.3.0_linux_amd64.tar.gz --output treefmt.tar.gz
           tar xzf treefmt.tar.gz
           sudo install treefmt /usr/local/bin/treefmt
-          curl -LsSf https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-full-linux-x86_64.gz -o taplo.gz
+          gh release download 0.10.0 --repo tamasfe/taplo --pattern taplo-linux-x86_64.gz --output taplo.gz
           gzip -d taplo.gz
           sudo install taplo /usr/local/bin/taplo
 
