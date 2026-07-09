@@ -9,6 +9,7 @@ for required in \
 	'guardrails-ref:' \
 	'required: true' \
 	'ref: \$\{\{ inputs\.guardrails-ref \}\}' \
+	'changed_files="\$\(git diff --name-only --diff-filter=ACMRT "\$base_sha" "\$head_sha"\)"' \
 	'ast_grep: \$\{\{ steps\.changed\.outputs\.ast_grep \}\}' \
 	'ast_grep="\$\(bool_for '\''\\\.swift\$'\''\)"' \
 	'printf '\''ast_grep=%s\\n'\'' "\$ast_grep"' \
@@ -21,5 +22,10 @@ for required in \
 		exit 1
 	fi
 done
+
+if rg -q 'git diff --name-only --diff-filter=ACMRT .* \|\| true' "$WORKFLOW"; then
+	echo "FAIL: QualityGates must not swallow git diff failures in change detection" >&2
+	exit 1
+fi
 
 echo "PASS"

@@ -43,7 +43,7 @@ jobs:
           base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
           if [ -n "$base_sha" ] && [ "$base_sha" != "0000000000000000000000000000000000000000" ]; then
-            changed_files="$(git diff --name-only --diff-filter=ACMRT "$base_sha" "$head_sha" || true)"
+            changed_files="$(git diff --name-only --diff-filter=ACMRT "$base_sha" "$head_sha")"
           else
             changed_files="$(git ls-files)"
           fi
