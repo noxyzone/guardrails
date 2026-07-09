@@ -124,14 +124,14 @@ jobs:
           set -euo pipefail
 
           sudo apt-get update
-          sudo apt-get install -y jq shellcheck shfmt
+          sudo apt-get install -y jq shellcheck
 
       - name: Install npm tools
         if: ${{ needs.detect_changes.outputs.eslint == 'true' || needs.detect_changes.outputs.markdownlint == 'true' || needs.detect_changes.outputs.secretlint == 'true' || needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
         run: |
           set -euo pipefail
 
-          npm install --no-save eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser markdownlint-cli2 secretlint@13.0.2 @secretlint/secretlint-rule-preset-recommend@13.0.2 prettier @prettier/plugin-xml prettier-plugin-go-template prettier-plugin-sh prettier-plugin-toml
+          npm install --no-save eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser markdownlint-cli2 secretlint@13.0.2 @secretlint/secretlint-rule-preset-recommend@13.0.2 prettier@3.9.4 @prettier/plugin-xml@3.4.2 prettier-plugin-go-template@0.0.15 prettier-plugin-sh@0.18.1 prettier-plugin-toml@2.0.6
 
       - name: Install Ruff
         if: ${{ needs.detect_changes.outputs.ruff == 'true' || needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
@@ -150,6 +150,8 @@ jobs:
           gh release download v2.3.0 --repo numtide/treefmt --pattern treefmt_2.3.0_linux_amd64.tar.gz --output treefmt.tar.gz
           tar xzf treefmt.tar.gz
           sudo install treefmt /usr/local/bin/treefmt
+          gh release download v3.13.1 --repo mvdan/sh --pattern shfmt_v3.13.1_linux_amd64 --output shfmt
+          sudo install shfmt /usr/local/bin/shfmt
           gh release download 0.10.0 --repo tamasfe/taplo --pattern taplo-linux-x86_64.gz --output taplo.gz
           gzip -d taplo.gz
           sudo install taplo /usr/local/bin/taplo
