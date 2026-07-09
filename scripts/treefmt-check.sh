@@ -11,7 +11,7 @@ guardrails_dir="$(cd "$script_dir/.." && pwd)"
 repo_root="."
 created_guardrails_dir=0
 created_editorconfig=0
-created_treefmt_noswift=0
+treefmt_noswift_config_path=""
 treefmt_mode="check"
 treefmt_args=()
 treefmt_timeout_seconds="${TREEFMT_TIMEOUT_SECONDS:-10}"
@@ -54,8 +54,8 @@ if [[ ! -e "$repo_root/.guardrails" ]]; then
 fi
 
 cleanup() {
-	if [[ "$created_treefmt_noswift" == 1 ]]; then
-		rm -f "$repo_root/.guardrails/treefmt.noswift.toml"
+	if [[ -n "$treefmt_noswift_config_path" ]]; then
+		rm -f "$treefmt_noswift_config_path"
 	fi
 	if [[ "$created_guardrails_dir" == 1 ]]; then
 		rm -rf "$repo_root/.guardrails"
@@ -141,6 +141,7 @@ fi
 } >"$repo_root/.guardrails/.swiftformat"
 
 if [[ "$treefmt_without_swiftformat" == 1 ]]; then
+	treefmt_noswift_config_path="$(mktemp "${TMPDIR:-/tmp}/treefmt-noswift.XXXXXX.toml")"
 	awk '
         /^\[formatter\.swiftformat\]$/ {
             skip=1
@@ -152,16 +153,15 @@ if [[ "$treefmt_without_swiftformat" == 1 ]]; then
         !skip {
             print
         }
-	' "$repo_root/.guardrails/treefmt.toml" >"$repo_root/.guardrails/treefmt.noswift.toml"
-	created_treefmt_noswift=1
-	treefmt_config_path=".guardrails/treefmt.noswift.toml"
+	' "$repo_root/.guardrails/treefmt.toml" >"$treefmt_noswift_config_path"
+	treefmt_config_path="$treefmt_noswift_config_path"
 else
 	treefmt_config_path=".guardrails/treefmt.toml"
 fi
 
 cd "$repo_root"
 if [[ "$treefmt_mode" == "write" ]]; then
-	run_with_timeout "$treefmt_timeout_seconds" treefmt --config-file "$treefmt_config_path" "${treefmt_args[@]}"
+	run_with_timeout "$treefmt_timeout_seconds" treefmt --tree-root "$repo_root" --config-file "$treefmt_config_path" "${treefmt_args[@]}"
 else
-	run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --config-file "$treefmt_config_path" "${treefmt_args[@]}"
+	run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --tree-root "$repo_root" --config-file "$treefmt_config_path" "${treefmt_args[@]}"
 fi
