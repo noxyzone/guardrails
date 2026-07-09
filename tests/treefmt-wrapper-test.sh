@@ -19,6 +19,11 @@ if ! rg -q "treefmt --ci --tree-root \"\\\$repo_root\" --walk git --excludes 'no
 	exit 1
 fi
 
+if ! rg -q "git diff --stat >&2" "$SCRIPT" || ! rg -q "git diff -- >&2" "$SCRIPT"; then
+	echo "FAIL: treefmt-check.sh must print formatter diffs when CI mode detects changes" >&2
+	exit 1
+fi
+
 if ! rg -q 'mktemp "\$\{TMPDIR:-/tmp\}/treefmt-noswift\.XXXXXX\.toml"' "$SCRIPT"; then
 	echo "FAIL: treefmt-check.sh must keep generated treefmt config outside the repo tree" >&2
 	exit 1
