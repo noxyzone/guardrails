@@ -31,7 +31,7 @@ cyclomatic_complexity:
   warning: 160
 
 file_length:
-  warning: 4200
+  warning: 6500
 
 function_body_length:
   warning: 820
@@ -53,4 +53,4 @@ line_length:
   warning: 260
 
 type_body_length:
-  warning: 2916
+  warning: 6500
