@@ -1,6 +1,12 @@
 node_modules
 public
 tmp
+.superpowers/**
+.takt/**
+.build/**
+build/**
+DerivedData/**
+artifacts/**
 .agents/skills/.system/**
 .agents/skills/aidlc*/**
 .codex/agents/aidlc-*
@@ -13,4 +19,6 @@ aidlc-docs/
 .aidlc-rule-details/
 aidlc/spaces/*/intents/*/audit/**
 aidlc/spaces/default/memory/**
+Vendor/BundledGit/build/**
+Vendor/BundledGit/cache/**
 scripts/delete-all-deployments/
