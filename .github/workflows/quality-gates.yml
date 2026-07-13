@@ -34,6 +34,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          fetch-depth: 0
 
       - name: Detect changed files
         id: changed
@@ -157,6 +158,18 @@ jobs:
           gzip -d taplo.gz
           sudo install taplo /usr/local/bin/taplo
 
+      - name: Install Typos
+        if: ${{ needs.detect_changes.outputs.typos == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          typos_tmp="$(mktemp -d)"
+          gh release download v1.48.0 --repo crate-ci/typos --pattern typos-v1.48.0-x86_64-unknown-linux-musl.tar.gz --output "$typos_tmp/typos.tar.gz"
+          tar xzf "$typos_tmp/typos.tar.gz" -C "$typos_tmp"
+          sudo install "$typos_tmp/typos" /usr/local/bin/typos
+
       - name: Run SecretLint
         if: ${{ needs.detect_changes.outputs.secretlint == 'true' }}
         run: |
@@ -186,61 +199,21 @@ jobs:
 
       - name: Run Typos
         if: ${{ needs.detect_changes.outputs.typos == 'true' }}
-        uses: crate-ci/typos@v1.48.0
-        with:
-          config: .guardrails/typos.toml
-          isolated: true
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          .guardrails/scripts/typos-check.sh --changed --base "$base_sha" --head "$head_sha" --repo "$GITHUB_WORKSPACE"
 
       - name: Run Localization
         if: ${{ needs.detect_changes.outputs.localization == 'true' }}
         run: |
           set -euo pipefail
 
-          found=0
-
-          xcstrings_files="$(git ls-files '*.xcstrings' || true)"
-          if [ -n "$xcstrings_files" ]; then
-            while IFS= read -r file; do
-              [ -f "$file" ] || continue
-              missing="$(
-                jq -r '
-                  select((.sourceLanguage // "en") == "en")
-                  | .strings
-                  | to_entries[]
-                  | select(.value.extractionState != "stale")
-                  | select(.key | test("[A-Za-z]"))
-                  | select(.key | test("[ぁ-んァ-ン一-龯]") | not)
-                  | select(.key | test("^(https?://|/|HEAD@\\{|[-+~]?[0-9%@{}._/: -]+$)") | not)
-                  | select(((.value.localizations // {}) | has("ja")) | not)
-                  | .key
-                ' "$file"
-              )"
-              if [ -n "$missing" ]; then
-                [ "$found" -eq 0 ] && echo "[localization] Localizable.xcstringsのja未登録キー:"
-                while IFS= read -r key; do
-                  printf '  %s: %s\n' "$file" "$key"
-                done <<< "$missing"
-                found=1
-              fi
-            done <<< "$xcstrings_files"
-          fi
-
-          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**' || true)"
-          if [ -n "$swift_files" ]; then
-            appkit_matches="$(
-              while IFS= read -r file; do
-                [ -f "$file" ] || continue
-                grep -nE 'NSMenuItem[[:space:]]*\([[:space:]]*title:[[:space:]]*"|Action[[:space:]]*\([[:space:]]*title:[[:space:]]*"|panel\.(title|message)[[:space:]]*=[[:space:]]*"|column\.title[[:space:]]*=[[:space:]]*"' "$file" | sed "s#^#$file:#" || true
-              done <<< "$swift_files"
-            )"
-            if [ -n "$appkit_matches" ]; then
-              [ "$found" -eq 0 ] && echo "[localization] SwiftUI自動抽出に乗らないUI文字列:"
-              printf '%s\n' "$appkit_matches" | sed 's/^/  /'
-              found=1
-            fi
-          fi
-
-          exit "$found"
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          .guardrails/scripts/localization-check.sh --changed --base "$base_sha" --head "$head_sha" --repo "$GITHUB_WORKSPACE"
 
       - name: Run MarkdownLint
         if: ${{ needs.detect_changes.outputs.markdownlint == 'true' }}

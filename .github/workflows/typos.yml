@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Checkout guardrails
         uses: actions/checkout@v4
@@ -20,8 +22,21 @@ jobs:
           repository: noxyzone/guardrails
           path: .guardrails
 
+      - name: Install Typos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          typos_tmp="$(mktemp -d)"
+          gh release download v1.48.0 --repo crate-ci/typos --pattern typos-v1.48.0-x86_64-unknown-linux-musl.tar.gz --output "$typos_tmp/typos.tar.gz"
+          tar xzf "$typos_tmp/typos.tar.gz" -C "$typos_tmp"
+          sudo install "$typos_tmp/typos" /usr/local/bin/typos
+
       - name: Run Typos
-        uses: crate-ci/typos@v1.48.0
-        with:
-          config: .guardrails/typos.toml
-          isolated: true
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          .guardrails/scripts/typos-check.sh --changed --base "$base_sha" --head "$head_sha" --repo "$GITHUB_WORKSPACE"

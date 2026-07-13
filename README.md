@@ -25,13 +25,28 @@
 
 ## ローカル確認
 
-TextSpacingはCIとローカル確認で同じ実装を使います。完了前の全量確認では次を実行します。
+TextSpacingとLocalizationはCIとローカル確認で同じ実装を使います。完了前の全量確認では次を実行します。
 
 ```bash
 scripts/text-spacing-check.sh --all --repo /path/to/repo
+scripts/localization-check.sh --all --repo /path/to/repo
 ```
 
-pre-commitでは同じスクリプトを`--staged`で呼び、staged fileだけを補助的に確認します。
+LocalizationはPR差分またはcommit対象だけを確認できます。
+
+```bash
+scripts/localization-check.sh --changed --base BASE --head HEAD --repo /path/to/repo
+scripts/localization-check.sh --staged --repo /path/to/repo
+```
+
+TyposはPR差分またはcommit対象だけを確認します。
+
+```bash
+scripts/typos-check.sh --changed --base BASE --head HEAD --repo /path/to/repo
+scripts/typos-check.sh --staged --repo /path/to/repo
+```
+
+pre-commitではTextSpacing、Localization、Typosを`--staged`で呼び、staged fileだけを補助的に確認します。
 
 ## 除外ルール
 

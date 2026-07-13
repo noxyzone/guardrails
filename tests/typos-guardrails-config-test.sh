@@ -11,18 +11,18 @@ if ! rg -q 'repository: noxyzone/guardrails' "$WORKFLOW"; then
 	exit 1
 fi
 
-if ! rg -q 'uses: crate-ci/typos@v1\.48\.0' "$WORKFLOW"; then
-	echo "FAIL: Typos workflow must pin crate-ci/typos action" >&2
+if ! rg -q 'gh release download v1\.48\.0 --repo crate-ci/typos' "$WORKFLOW"; then
+	echo "FAIL: Typos workflow must pin typos CLI download" >&2
 	exit 1
 fi
 
-if ! rg -q 'config: \.guardrails/typos\.toml' "$WORKFLOW"; then
-	echo "FAIL: Typos workflow must use shared guardrails/typos.toml" >&2
+if ! rg -q '\.guardrails/scripts/typos-check\.sh --changed --base "\$base_sha" --head "\$head_sha" --repo "\$GITHUB_WORKSPACE"' "$WORKFLOW"; then
+	echo "FAIL: Typos workflow must use shared typos-check.sh" >&2
 	exit 1
 fi
 
-if ! rg -q 'isolated: true' "$WORKFLOW"; then
-	echo "FAIL: Typos workflow must ignore implicit repo-local typos config" >&2
+if ! rg -q 'fetch-depth: 0' "$WORKFLOW"; then
+	echo "FAIL: Typos workflow must checkout enough history for changed-file scope" >&2
 	exit 1
 fi
 
@@ -31,9 +31,8 @@ for required in \
 	'typos: \$\{\{ steps\.changed\.outputs\.typos \}\}' \
 	'typos="\$any"' \
 	'needs\.detect_changes\.outputs\.typos == '\''true'\''' \
-	'uses: crate-ci/typos@v1\.48\.0' \
-	'config: \.guardrails/typos\.toml' \
-	'isolated: true'; do
+	'gh release download v1\.48\.0 --repo crate-ci/typos' \
+	'\.guardrails/scripts/typos-check\.sh --changed --base "\$base_sha" --head "\$head_sha" --repo "\$GITHUB_WORKSPACE"'; do
 	if ! rg -q "$required" "$QUALITY_GATES"; then
 		echo "FAIL: QualityGates must wire Typos rule: $required" >&2
 		exit 1

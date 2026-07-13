@@ -26,6 +26,7 @@ for required in \
 	'prettier-plugin-go-template@0\.0\.15' \
 	'prettier-plugin-sh@0\.18\.1' \
 	'prettier-plugin-toml@2\.0\.6' \
+	'\.guardrails/scripts/localization-check\.sh --changed --base "\$base_sha" --head "\$head_sha" --repo "\$GITHUB_WORKSPACE"' \
 	'needs\.detect_changes\.outputs\.ast_grep == '\''true'\''' \
 	'ast-grep scan --config \.guardrails/sgconfig\.yml --report-style short'; do
 	if ! rg -q "$required" "$WORKFLOW"; then

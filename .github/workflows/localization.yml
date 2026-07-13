@@ -11,53 +11,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check Swift localization coverage
         run: |
           set -euo pipefail
 
-          found=0
-
-          xcstrings_files="$(git ls-files '*.xcstrings' || true)"
-          if [ -n "$xcstrings_files" ]; then
-            while IFS= read -r file; do
-              [ -f "$file" ] || continue
-              missing="$(
-                jq -r '
-                  select((.sourceLanguage // "en") == "en")
-                  | .strings
-                  | to_entries[]
-                  | select(.value.extractionState != "stale")
-                  | select(.key | test("[A-Za-z]"))
-                  | select(.key | test("[ぁ-んァ-ン一-龯]") | not)
-                  | select(.key | test("^(https?://|/|HEAD@\\{|[-+~]?[0-9%@{}._/: -]+$)") | not)
-                  | select(((.value.localizations // {}) | has("ja")) | not)
-                  | .key
-                ' "$file"
-              )"
-              if [ -n "$missing" ]; then
-                [ "$found" -eq 0 ] && echo "[localization] Localizable.xcstringsのja未登録キー:"
-                while IFS= read -r key; do
-                  printf '  %s: %s\n' "$file" "$key"
-                done <<< "$missing"
-                found=1
-              fi
-            done <<< "$xcstrings_files"
-          fi
-
-          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**' || true)"
-          if [ -n "$swift_files" ]; then
-            appkit_matches="$(
-              while IFS= read -r file; do
-                [ -f "$file" ] || continue
-                grep -nE 'NSMenuItem[[:space:]]*\([[:space:]]*title:[[:space:]]*"|Action[[:space:]]*\([[:space:]]*title:[[:space:]]*"|panel\.(title|message)[[:space:]]*=[[:space:]]*"|column\.title[[:space:]]*=[[:space:]]*"' "$file" | sed "s#^#$file:#" || true
-              done <<< "$swift_files"
-            )"
-            if [ -n "$appkit_matches" ]; then
-              [ "$found" -eq 0 ] && echo "[localization] SwiftUI自動抽出に乗らないUI文字列:"
-              printf '%s\n' "$appkit_matches" | sed 's/^/  /'
-              found=1
-            fi
-          fi
-
-          exit "$found"
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          .guardrails/scripts/localization-check.sh --changed --base "$base_sha" --head "$head_sha" --repo "$GITHUB_WORKSPACE"
