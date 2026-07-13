@@ -1,6 +1,16 @@
 node_modules
 public
 tmp
+.agents/skills/.system/**
+.agents/skills/aidlc*/**
+.codex/agents/aidlc-*
+.codex/aidlc-common/**
+.codex/knowledge/aidlc-*/**
+.codex/scopes/aidlc-*
+.codex/sensors/aidlc-*
+.codex/tools/data/**
 aidlc-docs/
 .aidlc-rule-details/
+aidlc/spaces/*/intents/*/audit/**
+aidlc/spaces/default/memory/**
 scripts/delete-all-deployments/
