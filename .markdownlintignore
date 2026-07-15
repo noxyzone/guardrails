@@ -11,9 +11,11 @@ artifacts/
 .agents/skills/aidlc
 .codex/agents/aidlc-
 .codex/aidlc-common/
+.codex/hooks/aidlc-*.ts
 .codex/knowledge/aidlc-
 .codex/scopes/aidlc-
 .codex/sensors/aidlc-
+.codex/tools/aidlc-*.ts
 .codex/tools/data/
 aidlc-docs/
 aidlc/spaces/
