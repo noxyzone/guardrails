@@ -5,11 +5,13 @@ repo="."
 mode=""
 base_sha=""
 head_sha=""
+files_from=""
 
 usage() {
 	cat <<'USAGE'
 Usage:
   typos-check.sh --staged --repo /path/to/repo
+  typos-check.sh --files-from /path/to/files --repo /path/to/repo
   typos-check.sh --changed --base BASE --head HEAD --repo /path/to/repo
 
 Checks only commit/PR target files with the shared typos.toml config.
@@ -25,6 +27,15 @@ while [[ $# -gt 0 ]]; do
 	--changed)
 		mode="changed"
 		shift
+		;;
+	--files-from)
+		if [[ $# -lt 2 || "$2" == --* ]]; then
+			echo "error: --files-from requires a path" >&2
+			exit 2
+		fi
+		mode="files"
+		files_from="$2"
+		shift 2
 		;;
 	--base)
 		if [[ $# -lt 2 || "$2" == --* ]]; then
@@ -62,9 +73,13 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-if [[ "$mode" != "staged" && "$mode" != "changed" ]]; then
-	echo "error: --staged or --changed is required" >&2
+if [[ "$mode" != "staged" && "$mode" != "changed" && "$mode" != "files" ]]; then
+	echo "error: --staged, --changed, or --files-from is required" >&2
 	usage >&2
+	exit 2
+fi
+if [[ "$mode" == "files" && ! -f "$files_from" ]]; then
+	echo "error: file list not found: $files_from" >&2
 	exit 2
 fi
 
@@ -94,8 +109,19 @@ append_existing_files() {
 	done
 }
 
+append_listed_files() {
+	local path
+	while IFS= read -r path || [[ -n "$path" ]]; do
+		[[ -f "$repo/$path" ]] || continue
+		[[ ! -L "$repo/$path" ]] || continue
+		printf '%s\n' "$path" >>"$paths_file"
+	done
+}
+
 if [[ "$mode" == "staged" ]]; then
 	git -C "$repo" -c core.quotepath=false diff -z --cached --name-only --diff-filter=ACMRT | append_existing_files
+elif [[ "$mode" == "files" ]]; then
+	append_listed_files <"$files_from"
 else
 	if [[ -z "$base_sha" || -z "$head_sha" ]]; then
 		echo "error: --changed requires --base and --head" >&2

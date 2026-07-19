@@ -5,12 +5,14 @@ repo="."
 mode=""
 base_sha=""
 head_sha=""
+files_from=""
 
 usage() {
 	cat <<'USAGE'
 Usage:
   localization-check.sh --all --repo /path/to/repo
   localization-check.sh --staged --repo /path/to/repo
+  localization-check.sh --files-from /path/to/files --repo /path/to/repo
   localization-check.sh --changed --base BASE --head HEAD --repo /path/to/repo
 
 Checks tracked Swift localization files for missing ja localizations and
@@ -31,6 +33,15 @@ while [[ $# -gt 0 ]]; do
 	--changed)
 		mode="changed"
 		shift
+		;;
+	--files-from)
+		if [[ $# -lt 2 || "$2" == --* ]]; then
+			echo "error: --files-from requires a path" >&2
+			exit 2
+		fi
+		mode="files"
+		files_from="$2"
+		shift 2
 		;;
 	--base)
 		if [[ $# -lt 2 || "$2" == --* ]]; then
@@ -68,9 +79,13 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-if [[ "$mode" != "all" && "$mode" != "staged" && "$mode" != "changed" ]]; then
-	echo "error: --all, --staged, or --changed is required" >&2
+if [[ "$mode" != "all" && "$mode" != "staged" && "$mode" != "changed" && "$mode" != "files" ]]; then
+	echo "error: --all, --staged, --changed, or --files-from is required" >&2
 	usage >&2
+	exit 2
+fi
+if [[ "$mode" == "files" && ! -f "$files_from" ]]; then
+	echo "error: file list not found: $files_from" >&2
 	exit 2
 fi
 
@@ -96,12 +111,28 @@ append_existing_files() {
 	done
 }
 
+append_listed_files() {
+	local path
+	while IFS= read -r path || [[ -n "$path" ]]; do
+		case "$path" in
+		*.swift | *.xcstrings) ;;
+		*) continue ;;
+		esac
+		[[ -f "$repo/$path" ]] || continue
+		[[ ! -L "$repo/$path" ]] || continue
+		printf '%s\n' "$path" >>"$paths_file"
+	done
+}
+
 case "$mode" in
 all)
 	git -C "$repo" -c core.quotepath=false ls-files -z '*.swift' '*.xcstrings' ':!:DerivedData/**' ':!:.build/**' ':!:build/**' | append_existing_files
 	;;
 staged)
 	git -C "$repo" -c core.quotepath=false diff -z --cached --name-only --diff-filter=ACMRT | append_existing_files
+	;;
+files)
+	append_listed_files <"$files_from"
 	;;
 changed)
 	if [[ -z "$base_sha" || -z "$head_sha" ]]; then

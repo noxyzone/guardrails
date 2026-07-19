@@ -16,6 +16,7 @@ treefmt_mode="check"
 treefmt_args=()
 treefmt_timeout_seconds="${TREEFMT_TIMEOUT_SECONDS:-60}"
 treefmt_without_swiftformat=0
+treefmt_walk="git"
 
 while [[ "$#" -gt 0 ]]; do
 	case "$1" in
@@ -39,6 +40,10 @@ while [[ "$#" -gt 0 ]]; do
 	esac
 	shift
 done
+
+if [[ "${#treefmt_args[@]}" -gt 0 ]]; then
+	treefmt_walk="filesystem"
+fi
 
 repo_root="$(cd "$repo_root" && pwd)"
 
@@ -161,9 +166,9 @@ fi
 
 cd "$repo_root"
 if [[ "$treefmt_mode" == "write" ]]; then
-	run_with_timeout "$treefmt_timeout_seconds" treefmt --tree-root "$repo_root" --walk git --excludes 'node_modules/**' --excludes '.guardrails/**' --config-file "$treefmt_config_path" "${treefmt_args[@]}"
+	run_with_timeout "$treefmt_timeout_seconds" treefmt --tree-root "$repo_root" --walk "$treefmt_walk" --excludes 'node_modules/**' --excludes '.guardrails/**' --config-file "$treefmt_config_path" "${treefmt_args[@]}"
 else
-	if ! run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --tree-root "$repo_root" --walk git --excludes 'node_modules/**' --excludes '.guardrails/**' --config-file "$treefmt_config_path" "${treefmt_args[@]}"; then
+	if ! run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --tree-root "$repo_root" --walk "$treefmt_walk" --excludes 'node_modules/**' --excludes '.guardrails/**' --config-file "$treefmt_config_path" "${treefmt_args[@]}"; then
 		if command -v git >/dev/null && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 			printf '%s\n' '[treefmt] unexpected formatter changes:' >&2
 			git diff --stat >&2 || true

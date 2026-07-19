@@ -4,17 +4,25 @@ set -euo pipefail
 export LC_ALL="${TEXT_SPACING_LOCALE:-C.UTF-8}"
 
 usage() {
-	echo "usage: text-spacing-check.sh (--all|--staged) [--repo PATH]" >&2
+	echo "usage: text-spacing-check.sh (--all|--staged|--files-from PATH) [--repo PATH]" >&2
 	exit 2
 }
 
 MODE=""
 REPO="."
+FILES_FROM=""
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 	--all | --staged)
 		[ -z "$MODE" ] || usage
 		MODE="$1"
+		;;
+	--files-from)
+		[ -z "$MODE" ] || usage
+		[ "$#" -ge 2 ] || usage
+		MODE="$1"
+		FILES_FROM="$2"
+		shift
 		;;
 	--repo)
 		[ "$#" -ge 2 ] || usage
@@ -29,6 +37,9 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ -n "$MODE" ] || usage
+if [ "$MODE" = "--files-from" ]; then
+	[ -f "$FILES_FROM" ] || usage
+fi
 
 supports_grep_p() {
 	local grep_cmd="$1"
@@ -55,6 +66,9 @@ collect_files() {
 		;;
 	--staged)
 		git -C "$REPO" -c core.quotepath=false diff --cached --name-only --diff-filter=ACM
+		;;
+	--files-from)
+		cat "$FILES_FROM"
 		;;
 	*)
 		usage
