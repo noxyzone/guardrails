@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-	printf 'usage: quality-gate-path-filter.sh [--treefmt-excludes]\n' >&2
+	printf 'usage: quality-gate-path-filter.sh [--null | --treefmt-excludes]\n' >&2
 	exit 2
 }
 
@@ -28,6 +28,14 @@ if (($# > 1)); then
 	usage
 fi
 if (($# == 1)); then
+	if [[ "$1" == "--null" ]]; then
+		while IFS= read -r -d '' path; do
+			[[ -n "$path" ]] || continue
+			is_managed_artifact_path "$path" && continue
+			printf '%s\0' "$path"
+		done
+		exit 0
+	fi
 	[[ "$1" == "--treefmt-excludes" ]] || usage
 	printf '%s\n' \
 		'.agents/skills/aidlc*/**' \

@@ -179,12 +179,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          files="$(git ls-files | .guardrails/scripts/quality-gate-path-filter.sh | while IFS= read -r path; do
-            [ -L "$path" ] || [ ! -e "$path" ] || printf '%s\n' "$path"
-          done)"
-          if [ -n "$files" ]; then
-            printf '%s\n' "$files" | xargs npx secretlint --secretlintrc .guardrails/.secretlintrc.json
-          fi
+          git ls-files -z \
+            | .guardrails/scripts/quality-gate-path-filter.sh --null \
+            | while IFS= read -r -d '' path; do
+                [ -L "$path" ] || [ ! -e "$path" ] || printf '%s\0' "$path"
+              done \
+            | xargs -0 -r npx secretlint --secretlintrc .guardrails/.secretlintrc.json --
 
       - name: Run Treefmt
         if: ${{ needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
@@ -224,71 +224,71 @@ jobs:
         run: |
           set -euo pipefail
 
-          markdown_files="$(git ls-files '*.md')"
           markdownlint_ignore=".markdownlintignore"
           if [ ! -f "$markdownlint_ignore" ]; then
             markdownlint_ignore=".guardrails/.markdownlintignore"
           fi
-          if [ -f "$markdownlint_ignore" ]; then
-            while IFS= read -r pattern || [ -n "$pattern" ]; do
-              [[ "$pattern" =~ ^#|^[[:space:]]*$ ]] && continue
-              markdown_files="$(printf '%s\n' "$markdown_files" | grep -v "^${pattern%/}" | grep -v "^${pattern%/}/" || true)"
-            done < "$markdownlint_ignore"
-          fi
-          if [ -n "$markdown_files" ]; then
-            printf '%s\n' "$markdown_files" | xargs npx markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml
-          fi
+          git ls-files -z '*.md' \
+            | while IFS= read -r -d '' path; do
+                ignored=false
+                if [ -f "$markdownlint_ignore" ]; then
+                  while IFS= read -r pattern || [ -n "$pattern" ]; do
+                    [[ "$pattern" =~ ^#|^[[:space:]]*$ ]] && continue
+                    prefix="${pattern%/}"
+                    if [[ "$path" == "$prefix" || "$path" == "$prefix/"* ]]; then
+                      ignored=true
+                      break
+                    fi
+                  done < "$markdownlint_ignore"
+                fi
+                [ "$ignored" = true ] || printf '%s\0' "$path"
+              done \
+            | xargs -0 -r npx markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml --
 
       - name: Run ESLint
         if: ${{ needs.detect_changes.outputs.eslint == 'true' }}
         run: |
           set -euo pipefail
 
-          files="$(git ls-files | .guardrails/scripts/quality-gate-path-filter.sh | grep -E '\.(js|cjs|mjs|ts)$' || true)"
-          if [ -n "$files" ]; then
-            printf '%s\n' "$files" | xargs npx eslint --config .guardrails/eslint.config.js --no-config-lookup
-          fi
+          git ls-files -z \
+            | .guardrails/scripts/quality-gate-path-filter.sh --null \
+            | while IFS= read -r -d '' path; do
+                [[ "$path" =~ \.(js|cjs|mjs|ts)$ ]] && printf '%s\0' "$path"
+              done \
+            | xargs -0 -r npx eslint --config .guardrails/eslint.config.js --no-config-lookup --
 
       - name: Run Ruff
         if: ${{ needs.detect_changes.outputs.ruff == 'true' }}
         run: |
           set -euo pipefail
 
-          files="$(git ls-files '*.py')"
-          if [ -n "$files" ]; then
-            printf '%s\n' "$files" | xargs ruff check
-          fi
+          git ls-files -z '*.py' | xargs -0 -r ruff check --
 
       - name: Run Shebang
         if: ${{ needs.detect_changes.outputs.shell == 'true' }}
         run: |
           set -euo pipefail
 
-          files="$(git ls-files | while IFS= read -r path; do
-            if [[ "$path" == *.sh ]]; then
-              printf '%s\n' "$path"
-            elif [ -f "$path" ] && file "$path" | grep -q 'shell script'; then
-              printf '%s\n' "$path"
-            fi
-          done)"
-          if [ -z "$files" ]; then
-            exit 0
-          fi
-
           failed=0
-          while IFS= read -r file; do
+          while IFS= read -r -d '' file; do
             if [[ "$file" == config/*.sh || "$file" == config/**/*.sh ]]; then
-              if [ ! -x "$file" ] && head -1 "$file" | grep -qE '^#!'; then
+              if [ ! -x "$file" ] && head -1 -- "$file" | grep -qE '^#!'; then
                 echo "[shebang] source用のconfig/*.shにはshebangを書かないでください: $file" >&2
                 failed=1
                 continue
               fi
             fi
-            if head -1 "$file" | grep -qE '^#!/(bin|usr/bin)/(bash|sh|zsh|ksh|dash)'; then
+            if head -1 -- "$file" | grep -qE '^#!/(bin|usr/bin)/(bash|sh|zsh|ksh|dash)'; then
               echo "[shebang] /usr/bin/envを使ってください: $file" >&2
               failed=1
             fi
-          done <<< "$files"
+          done < <(git ls-files -z | while IFS= read -r -d '' path; do
+            if [[ "$path" == *.sh ]]; then
+              printf '%s\0' "$path"
+            elif [ -f "$path" ] && file -- "$path" | grep -q 'shell script'; then
+              printf '%s\0' "$path"
+            fi
+          done)
           exit "$failed"
 
       - name: Run ShellCheck
@@ -296,16 +296,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          files="$(git ls-files | while IFS= read -r path; do
+          git ls-files -z | while IFS= read -r -d '' path; do
             if [[ "$path" == *.sh ]] && [[ "$path" != */zsh/* ]]; then
-              printf '%s\n' "$path"
-            elif [ -f "$path" ] && file "$path" | grep -q 'shell script' && file "$path" | grep -qv 'zsh'; then
-              printf '%s\n' "$path"
+              printf '%s\0' "$path"
+            elif [ -f "$path" ] && file -- "$path" | grep -q 'shell script' && file -- "$path" | grep -qv 'zsh'; then
+              printf '%s\0' "$path"
             fi
-          done)"
-          if [ -n "$files" ]; then
-            printf '%s\n' "$files" | xargs shellcheck
-          fi
+          done | xargs -0 -r shellcheck --
 
   macos_guardrails:
     if: ${{ needs.detect_changes.outputs.swift == 'true' }}
@@ -347,19 +344,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
-          if [ -n "$swift_files" ]; then
-            printf '%s\n' "$swift_files" | xargs ast-grep scan --config .guardrails/sgconfig.yml --report-style short
-          fi
+          git ls-files -z '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**' \
+            | xargs -0 ast-grep scan --config .guardrails/sgconfig.yml --report-style short --
 
       - name: Run SwiftLint
         run: |
           set -euo pipefail
 
-          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
-          if [ -n "$swift_files" ]; then
-            printf '%s\n' "$swift_files" | xargs swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml
-          fi
+          git ls-files -z '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**' \
+            | xargs -0 swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml --
 
       - name: Verify shared formatter config links
         run: |
@@ -374,10 +367,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
-          if [ -n "$swift_files" ]; then
-            printf '%s\n' "$swift_files" | xargs swiftformat --lint --config .guardrails/.swiftformat
-          fi
+          git ls-files -z '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**' \
+            | xargs -0 swiftformat --lint --config .guardrails/.swiftformat --
 
   quality_gates:
     if: ${{ always() }}

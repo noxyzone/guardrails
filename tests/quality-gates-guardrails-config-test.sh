@@ -38,6 +38,21 @@ for required in \
 	fi
 done
 
+for required in \
+	'xargs -0 -r npx secretlint --secretlintrc .guardrails/.secretlintrc.json --' \
+	'xargs -0 -r npx markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml --' \
+	'xargs -0 -r npx eslint --config .guardrails/eslint.config.js --no-config-lookup --' \
+	'xargs -0 -r ruff check --' \
+	'xargs -0 -r shellcheck --' \
+	'xargs -0 ast-grep scan --config .guardrails/sgconfig.yml --report-style short --' \
+	'xargs -0 swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml --' \
+	'xargs -0 swiftformat --lint --config .guardrails/.swiftformat --'; do
+	if ! rg -Fq "$required" "$WORKFLOW"; then
+		echo "FAIL: QualityGates must NUL-delimit file arguments and terminate tool options: $required" >&2
+		exit 1
+	fi
+done
+
 for forbidden in \
 	'uses: actions/checkout@v[0-9]' \
 	'npm install' \

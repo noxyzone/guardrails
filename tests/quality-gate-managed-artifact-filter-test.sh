@@ -27,11 +27,38 @@ if [[ "$actual" != "$expected" ]]; then
 	exit 1
 fi
 
+null_actual="$({
+	printf '%s\0' \
+		'.codex/tools/aidlc-state.ts' \
+		$'--ignore-pattern=evil.cjs\nkept.ts' \
+		'scripts/aidlc-ts-check.sh'
+} | "$FILTER" --null | od -An -tx1 | tr -d ' \n')"
+null_expected="$(printf '%s\0' $'--ignore-pattern=evil.cjs\nkept.ts' 'scripts/aidlc-ts-check.sh' | od -An -tx1 | tr -d ' \n')"
+if [[ "$null_actual" != "$null_expected" ]]; then
+	printf 'FAIL: null-delimited managed artifact filter output mismatch\nexpected: %s\nactual: %s\n' "$null_expected" "$null_actual" >&2
+	exit 1
+fi
+
 for required in \
-	'git ls-files | .guardrails/scripts/quality-gate-path-filter.sh | while' \
-	'git ls-files | .guardrails/scripts/quality-gate-path-filter.sh | grep -E'; do
+	'git ls-files -z' \
+	'.guardrails/scripts/quality-gate-path-filter.sh --null' \
+	'xargs -0 -r npx secretlint' \
+	'xargs -0 -r npx eslint' \
+	'xargs -0 -r shellcheck --' \
+	'xargs -0 swiftlint lint' \
+	'xargs -0 swiftformat --lint'; do
 	if ! rg -Fq "$required" "$WORKFLOW"; then
-		printf 'FAIL: QualityGates does not apply managed artifact filtering: %s\n' "$required" >&2
+		printf 'FAIL: QualityGates does not preserve safe file arguments: %s\n' "$required" >&2
+		exit 1
+	fi
+done
+
+# shellcheck disable=SC2016
+for forbidden in \
+	'printf '\''%s\n'\'' "$files" | xargs' \
+	'printf '\''%s\n'\'' "$swift_files" | xargs'; do
+	if rg -Fq "$forbidden" "$WORKFLOW"; then
+		printf 'FAIL: QualityGates contains unsafe newline-delimited file arguments: %s\n' "$forbidden" >&2
 		exit 1
 	fi
 done
