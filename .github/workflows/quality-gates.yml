@@ -30,7 +30,7 @@ jobs:
       ubuntu: ${{ steps.changed.outputs.ubuntu }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -107,12 +107,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           persist-credentials: false
 
       - name: Checkout guardrails
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           repository: noxyzone/guardrails
           ref: ${{ inputs.guardrails-ref }}
@@ -131,14 +131,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          npm install --no-save eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser markdownlint-cli2 secretlint@13.0.2 @secretlint/secretlint-rule-preset-recommend@13.0.2 prettier@3.9.4 @prettier/plugin-xml@3.4.2 prettier-plugin-go-template@0.0.15 prettier-plugin-sh@0.18.1 prettier-plugin-toml@2.0.6
+          npm ci --prefix .guardrails/.github/quality-gates --ignore-scripts
+          printf '%s\n' "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Install Ruff
         if: ${{ needs.detect_changes.outputs.ruff == 'true' || needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
         run: |
           set -euo pipefail
 
-          pipx install ruff
+          pipx install ruff==0.15.22
 
       - name: Install Treefmt tools
         if: ${{ needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
@@ -149,11 +150,14 @@ jobs:
 
           treefmt_tmp="$(mktemp -d)"
           gh release download v2.3.0 --repo numtide/treefmt --pattern treefmt_2.3.0_linux_amd64.tar.gz --output "$treefmt_tmp/treefmt.tar.gz"
+          printf '%s  %s\n' '5d3ad279590f1c29c0e6b409dc2a6ce24ad4439e267be8eb0e4e671aed6c02a8' "$treefmt_tmp/treefmt.tar.gz" | sha256sum --check --strict
           tar xzf "$treefmt_tmp/treefmt.tar.gz" -C "$treefmt_tmp"
           sudo install "$treefmt_tmp/treefmt" /usr/local/bin/treefmt
           gh release download v3.13.1 --repo mvdan/sh --pattern shfmt_v3.13.1_linux_amd64 --output shfmt
+          printf '%s  %s\n' 'fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1' shfmt | sha256sum --check --strict
           sudo install shfmt /usr/local/bin/shfmt
           gh release download 0.10.0 --repo tamasfe/taplo --pattern taplo-linux-x86_64.gz --output taplo.gz
+          printf '%s  %s\n' '8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156' taplo.gz | sha256sum --check --strict
           gzip -d taplo.gz
           sudo install taplo /usr/local/bin/taplo
 
@@ -166,6 +170,7 @@ jobs:
 
           typos_tmp="$(mktemp -d)"
           gh release download v1.48.0 --repo crate-ci/typos --pattern typos-v1.48.0-x86_64-unknown-linux-musl.tar.gz --output "$typos_tmp/typos.tar.gz"
+          printf '%s  %s\n' '72a930c9a94fc3914aa56835c5b859c892a797d40c1c42638b98d93f16ff519c' "$typos_tmp/typos.tar.gz" | sha256sum --check --strict
           tar xzf "$typos_tmp/typos.tar.gz" -C "$typos_tmp"
           sudo install "$typos_tmp/typos" /usr/local/bin/typos
 
@@ -312,12 +317,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           persist-credentials: false
 
       - name: Checkout guardrails
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           repository: noxyzone/guardrails
           ref: ${{ inputs.guardrails-ref }}
@@ -325,9 +330,16 @@ jobs:
           persist-credentials: false
 
       - name: Install Swift tools
+        env:
+          HOMEBREW_CORE_REVISION: d9fca872b542d66e0143ad467fa1e9ed6618d423
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_FROM_API: "1"
         run: |
           set -euo pipefail
 
+          brew tap homebrew/core
+          git -C "$(brew --repo homebrew/core)" fetch --depth=1 origin "$HOMEBREW_CORE_REVISION"
+          git -C "$(brew --repo homebrew/core)" checkout --detach "$HOMEBREW_CORE_REVISION"
           brew install ast-grep swiftformat swiftlint
 
       - name: Run ast-grep
