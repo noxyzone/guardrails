@@ -1,5 +1,6 @@
 [files]
 extend-exclude = [
+  ".agents/skills/aidlc*/",
   ".claude/cache/",
   ".claude/plans/",
   ".claude/plugins/",
@@ -7,6 +8,15 @@ extend-exclude = [
   ".claude/shell-snapshots/",
   ".claude/todos/",
   ".codex/cache/",
+  ".codex/agents/aidlc-*/",
+  ".codex/aidlc-common/",
+  ".codex/hooks/aidlc-*",
+  ".codex/knowledge/aidlc-*/",
+  ".codex/scopes/aidlc-*/",
+  ".codex/sensors/aidlc-*",
+  ".codex/tools/aidlc-*",
+  ".codex/tools/data/",
+  "aidlc/spaces/",
   "artifacts/",
   "contrib/",
   "node_modules/",

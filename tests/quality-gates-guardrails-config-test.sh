@@ -45,4 +45,9 @@ if rg -q 'git diff --name-only --diff-filter=ACMRT .* \|\| true' "$WORKFLOW"; th
 	exit 1
 fi
 
+if [[ "$(rg -c '^          fetch-depth: 0$' "$WORKFLOW")" != "1" ]]; then
+	echo "FAIL: change detection checkout must define fetch-depth exactly once" >&2
+	exit 1
+fi
+
 echo "PASS"

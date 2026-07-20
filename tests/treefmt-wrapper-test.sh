@@ -14,12 +14,12 @@ if ! rg -q 'treefmt_walk="git"' "$SCRIPT" || ! rg -q 'treefmt_walk="filesystem"'
 	exit 1
 fi
 
-if ! rg -q "treefmt --tree-root \"\\\$repo_root\" --walk \"\\\$treefmt_walk\" --excludes 'node_modules/\\*\\*' --excludes '\\.guardrails/\\*\\*' --config-file \"\\\$treefmt_config_path\"" "$SCRIPT"; then
+if ! rg -q "treefmt --tree-root \"\\\$repo_root\" --walk \"\\\$treefmt_walk\" --excludes 'node_modules/\\*\\*' --excludes '\\.guardrails/\\*\\*' \"\\\$\{treefmt_exclude_args\[@\]\}\" --config-file \"\\\$treefmt_config_path\"" "$SCRIPT"; then
 	echo "FAIL: treefmt-check.sh must pin treefmt root and exclude generated dependency trees" >&2
 	exit 1
 fi
 
-if ! rg -q "treefmt --ci --tree-root \"\\\$repo_root\" --walk \"\\\$treefmt_walk\" --excludes 'node_modules/\\*\\*' --excludes '\\.guardrails/\\*\\*' --config-file \"\\\$treefmt_config_path\"" "$SCRIPT"; then
+if ! rg -q "treefmt --ci --tree-root \"\\\$repo_root\" --walk \"\\\$treefmt_walk\" --excludes 'node_modules/\\*\\*' --excludes '\\.guardrails/\\*\\*' \"\\\$\{treefmt_exclude_args\[@\]\}\" --config-file \"\\\$treefmt_config_path\"" "$SCRIPT"; then
 	echo "FAIL: treefmt-check.sh must pin CI root and exclude generated dependency trees" >&2
 	exit 1
 fi

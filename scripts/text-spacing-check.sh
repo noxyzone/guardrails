@@ -3,6 +3,8 @@ set -euo pipefail
 
 export LC_ALL="${TEXT_SPACING_LOCALE:-C.UTF-8}"
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 usage() {
 	echo "usage: text-spacing-check.sh (--all|--staged|--files-from PATH) [--repo PATH]" >&2
 	exit 2
@@ -96,7 +98,7 @@ is_excluded_file() {
 
 FOUND=0
 SPACING_PATTERN='[\p{Hiragana}\p{Katakana}\p{Han}] [A-Za-z0-9]|[A-Za-z0-9] [\p{Hiragana}\p{Katakana}\p{Han}]'
-FILES="$(collect_files | while IFS= read -r file; do
+FILES="$(collect_files | "$script_dir/quality-gate-path-filter.sh" | while IFS= read -r file; do
 	is_target_file "$file" || continue
 	is_excluded_file "$file" && continue
 	printf '%s\n' "$file"

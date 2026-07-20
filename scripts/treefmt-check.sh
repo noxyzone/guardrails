@@ -17,6 +17,7 @@ treefmt_args=()
 treefmt_timeout_seconds="${TREEFMT_TIMEOUT_SECONDS:-60}"
 treefmt_without_swiftformat=0
 treefmt_walk="git"
+treefmt_exclude_args=()
 
 while [[ "$#" -gt 0 ]]; do
 	case "$1" in
@@ -46,6 +47,10 @@ if [[ "${#treefmt_args[@]}" -gt 0 ]]; then
 fi
 
 repo_root="$(cd "$repo_root" && pwd)"
+
+while IFS= read -r exclusion; do
+	treefmt_exclude_args+=(--excludes "$exclusion")
+done < <("$script_dir/quality-gate-path-filter.sh" --treefmt-excludes)
 
 if [[ ! -f "$guardrails_dir/treefmt.toml" ]]; then
 	fail "treefmt config not found: $guardrails_dir/treefmt.toml"
@@ -166,9 +171,9 @@ fi
 
 cd "$repo_root"
 if [[ "$treefmt_mode" == "write" ]]; then
-	run_with_timeout "$treefmt_timeout_seconds" treefmt --tree-root "$repo_root" --walk "$treefmt_walk" --excludes 'node_modules/**' --excludes '.guardrails/**' --config-file "$treefmt_config_path" "${treefmt_args[@]}"
+	run_with_timeout "$treefmt_timeout_seconds" treefmt --tree-root "$repo_root" --walk "$treefmt_walk" --excludes 'node_modules/**' --excludes '.guardrails/**' "${treefmt_exclude_args[@]}" --config-file "$treefmt_config_path" "${treefmt_args[@]}"
 else
-	if ! run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --tree-root "$repo_root" --walk "$treefmt_walk" --excludes 'node_modules/**' --excludes '.guardrails/**' --config-file "$treefmt_config_path" "${treefmt_args[@]}"; then
+	if ! run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --tree-root "$repo_root" --walk "$treefmt_walk" --excludes 'node_modules/**' --excludes '.guardrails/**' "${treefmt_exclude_args[@]}" --config-file "$treefmt_config_path" "${treefmt_args[@]}"; then
 		if command -v git >/dev/null && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 			printf '%s\n' '[treefmt] unexpected formatter changes:' >&2
 			git diff --stat >&2 || true

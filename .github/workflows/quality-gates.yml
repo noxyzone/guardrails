@@ -34,7 +34,6 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          fetch-depth: 0
 
       - name: Detect changed files
         id: changed
@@ -175,7 +174,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          files="$(git ls-files | while IFS= read -r path; do
+          files="$(git ls-files | .guardrails/scripts/quality-gate-path-filter.sh | while IFS= read -r path; do
             [ -L "$path" ] || [ ! -e "$path" ] || printf '%s\n' "$path"
           done)"
           if [ -n "$files" ]; then
@@ -240,7 +239,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          files="$(git ls-files | grep -E '\.(js|cjs|mjs|ts)$' || true)"
+          files="$(git ls-files | .guardrails/scripts/quality-gate-path-filter.sh | grep -E '\.(js|cjs|mjs|ts)$' || true)"
           if [ -n "$files" ]; then
             printf '%s\n' "$files" | xargs npx eslint --config .guardrails/eslint.config.js --no-config-lookup
           fi
