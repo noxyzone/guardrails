@@ -39,11 +39,13 @@ if [[ "$null_actual" != "$null_expected" ]]; then
 	exit 1
 fi
 
+# These assertions intentionally preserve child-shell variables as literal workflow text.
+# shellcheck disable=SC2016
 for required in \
 	'git ls-files -z' \
 	'.guardrails/scripts/quality-gate-path-filter.sh --null' \
-	'xargs -0 -r npx secretlint' \
-	'xargs -0 -r npx eslint' \
+	'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/secretlint"' \
+	'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/eslint"' \
 	'xargs -0 -r shellcheck --' \
 	'xargs -0 swiftlint lint' \
 	'xargs -0 swiftformat --lint'; do

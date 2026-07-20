@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT_DIR/.github/workflows/typos.yml"
 QUALITY_GATES="$ROOT_DIR/.github/workflows/quality-gates.yml"
+CHANGE_DETECTION="$ROOT_DIR/scripts/quality-gate-change-detection.sh"
 CONFIG="$ROOT_DIR/typos.toml"
 
 if ! rg -q 'repository: noxyzone/guardrails' "$WORKFLOW"; then
@@ -29,7 +30,6 @@ fi
 # shellcheck disable=SC2016
 for required in \
 	'typos: \$\{\{ steps\.changed\.outputs\.typos \}\}' \
-	'typos="\$any"' \
 	'needs\.detect_changes\.outputs\.typos == '\''true'\''' \
 	'gh release download v1\.48\.0 --repo crate-ci/typos' \
 	'\.guardrails/scripts/typos-check\.sh --changed --base "\$base_sha" --head "\$head_sha" --repo "\$GITHUB_WORKSPACE"'; do
@@ -38,6 +38,11 @@ for required in \
 		exit 1
 	fi
 done
+
+if ! rg -q 'typos="\$any"' "$CHANGE_DETECTION"; then
+	echo "FAIL: change detection must enable Typos for every changed path" >&2
+	exit 1
+fi
 
 for excluded in \
 	'".claude/cache/"' \

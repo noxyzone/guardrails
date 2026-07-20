@@ -9,10 +9,11 @@ for required in \
 	'guardrails-ref:' \
 	'required: true' \
 	'ref: \$\{\{ inputs\.guardrails-ref \}\}' \
-	'changed_files="\$\(git diff --name-only --diff-filter=ACMRT "\$base_sha" "\$head_sha"\)"' \
+	'quality-gate-change-detection\.sh' \
+	'--base "\$base_sha"' \
+	'--head "\$head_sha"' \
+	'--output "\$GITHUB_OUTPUT"' \
 	'ast_grep: \$\{\{ steps\.changed\.outputs\.ast_grep \}\}' \
-	'ast_grep="\$\(bool_for '\''\\\.swift\$'\''\)"' \
-	'printf '\''ast_grep=%s\\n'\'' "\$ast_grep"' \
 	'uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955' \
 	'npm ci --prefix \.guardrails/\.github/quality-gates --ignore-scripts' \
 	'pipx install ruff==0\.15\.22' \
@@ -32,16 +33,17 @@ for required in \
 	'\.guardrails/scripts/localization-check\.sh --changed --base "\$base_sha" --head "\$head_sha" --repo "\$GITHUB_WORKSPACE"' \
 	'needs\.detect_changes\.outputs\.ast_grep == '\''true'\''' \
 	'ast-grep scan --config \.guardrails/sgconfig\.yml --report-style short'; do
-	if ! rg -q "$required" "$WORKFLOW"; then
+	if ! rg -q -- "$required" "$WORKFLOW"; then
 		echo "FAIL: QualityGates must wire ast-grep rule: $required" >&2
 		exit 1
 	fi
 done
 
+# shellcheck disable=SC2016
 for required in \
-	'xargs -0 -r npx secretlint --secretlintrc .guardrails/.secretlintrc.json --' \
-	'xargs -0 -r npx markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml --' \
-	'xargs -0 -r npx eslint --config .guardrails/eslint.config.js --no-config-lookup --' \
+	'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/secretlint" --secretlintrc .guardrails/.secretlintrc.json --' \
+	'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/markdownlint-cli2" --config .guardrails/.markdownlint-cli2.yaml --' \
+	'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/eslint" --config .guardrails/eslint.config.js --no-config-lookup --' \
 	'xargs -0 -r ruff check --' \
 	'xargs -0 -r shellcheck --' \
 	'xargs -0 ast-grep scan --config .guardrails/sgconfig.yml --report-style short --' \
@@ -53,10 +55,12 @@ for required in \
 	fi
 done
 
+# shellcheck disable=SC2016
 for forbidden in \
 	'uses: actions/checkout@v[0-9]' \
 	'npm install' \
-	'pipx install ruff$'; do
+	'pipx install ruff$' \
+	'\$PWD/node_modules/\.bin'; do
 	if rg -q "$forbidden" "$WORKFLOW"; then
 		echo "FAIL: QualityGates contains mutable dependency: $forbidden" >&2
 		exit 1

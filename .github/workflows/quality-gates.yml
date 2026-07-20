@@ -35,6 +35,14 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Checkout guardrails
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          repository: noxyzone/guardrails
+          ref: ${{ inputs.guardrails-ref }}
+          path: .guardrails
+          persist-credentials: false
+
       - name: Detect changed files
         id: changed
         run: |
@@ -42,60 +50,11 @@ jobs:
 
           base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
-          if [ -n "$base_sha" ] && [ "$base_sha" != "0000000000000000000000000000000000000000" ]; then
-            changed_files="$(git diff --name-only --diff-filter=ACMRT "$base_sha" "$head_sha")"
-          else
-            changed_files="$(git ls-files)"
-          fi
-
-          has_changed() {
-            local pattern="$1"
-            [ -n "$changed_files" ] && printf '%s\n' "$changed_files" | grep -Eq "$pattern"
-          }
-
-          bool_for() {
-            if has_changed "$1"; then
-              printf '%s\n' true
-            else
-              printf '%s\n' false
-            fi
-          }
-
-          any="$(bool_for '.+')"
-          ast_grep="$(bool_for '\.swift$')"
-          eslint="$(bool_for '\.(cjs|js|mjs|ts)$')"
-          localization="$(bool_for '\.(swift|xcstrings)$')"
-          markdownlint="$(bool_for '\.md$')"
-          ruff="$(bool_for '\.py$')"
-          shell="$(bool_for '\.sh$')"
-          swift="$(bool_for '\.swift$')"
-          text_spacing="$(bool_for '\.(css|html|json|jsonc|md|toml|txt|yaml|yml)$')"
-          treefmt_non_swift="$(bool_for '\.(cjs|css|entitlements|html|ipynb|js|json|jsonc|md|mjs|plist|py|sh|svg|toml|ts|tsx|xcscheme|xcstrings|xctestplan|xcworkspacedata|xml|xsd|yaml|yml)$')"
-          secretlint="$any"
-          typos="$any"
-
-          ubuntu=false
-          for needed in "$eslint" "$localization" "$markdownlint" "$ruff" "$secretlint" "$shell" "$text_spacing" "$treefmt_non_swift" "$typos"; do
-            if [ "$needed" = true ]; then
-              ubuntu=true
-            fi
-          done
-
-          {
-            printf 'any=%s\n' "$any"
-            printf 'ast_grep=%s\n' "$ast_grep"
-            printf 'eslint=%s\n' "$eslint"
-            printf 'localization=%s\n' "$localization"
-            printf 'markdownlint=%s\n' "$markdownlint"
-            printf 'ruff=%s\n' "$ruff"
-            printf 'secretlint=%s\n' "$secretlint"
-            printf 'shell=%s\n' "$shell"
-            printf 'swift=%s\n' "$swift"
-            printf 'text_spacing=%s\n' "$text_spacing"
-            printf 'treefmt_non_swift=%s\n' "$treefmt_non_swift"
-            printf 'typos=%s\n' "$typos"
-            printf 'ubuntu=%s\n' "$ubuntu"
-          } >> "$GITHUB_OUTPUT"
+          .guardrails/scripts/quality-gate-change-detection.sh \
+            --repo "$GITHUB_WORKSPACE" \
+            --base "$base_sha" \
+            --head "$head_sha" \
+            --output "$GITHUB_OUTPUT"
 
   ubuntu_guardrails:
     if: ${{ needs.detect_changes.outputs.ubuntu == 'true' }}
@@ -184,14 +143,14 @@ jobs:
             | while IFS= read -r -d '' path; do
                 [ -L "$path" ] || [ ! -e "$path" ] || printf '%s\0' "$path"
               done \
-            | xargs -0 -r npx secretlint --secretlintrc .guardrails/.secretlintrc.json --
+            | xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/secretlint" --secretlintrc .guardrails/.secretlintrc.json --
 
       - name: Run Treefmt
         if: ${{ needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
         run: |
           set -euo pipefail
 
-          export PATH="$HOME/.local/bin:$PWD/node_modules/.bin:$PATH"
+          export PATH="$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
           .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE"
 
       - name: Run TextSpacing
@@ -243,7 +202,7 @@ jobs:
                 fi
                 [ "$ignored" = true ] || printf '%s\0' "$path"
               done \
-            | xargs -0 -r npx markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml --
+            | xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/markdownlint-cli2" --config .guardrails/.markdownlint-cli2.yaml --
 
       - name: Run ESLint
         if: ${{ needs.detect_changes.outputs.eslint == 'true' }}
@@ -255,7 +214,7 @@ jobs:
             | while IFS= read -r -d '' path; do
                 [[ "$path" =~ \.(js|cjs|mjs|ts)$ ]] && printf '%s\0' "$path"
               done \
-            | xargs -0 -r npx eslint --config .guardrails/eslint.config.js --no-config-lookup --
+            | xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/eslint" --config .guardrails/eslint.config.js --no-config-lookup --
 
       - name: Run Ruff
         if: ${{ needs.detect_changes.outputs.ruff == 'true' }}
