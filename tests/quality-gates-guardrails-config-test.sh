@@ -8,8 +8,13 @@ WORKFLOW="$ROOT_DIR/.github/workflows/quality-gates.yml"
 for required in \
 	'guardrails-ref:' \
 	'required: true' \
+	'scope:' \
+	'default: changed' \
+	'scope_args=\(--all\)' \
+	'scope_args=\(--changed --base "\$base_sha" --head "\$head_sha"\)' \
 	'ref: \$\{\{ inputs\.guardrails-ref \}\}' \
 	'quality-gate-change-detection\.sh' \
+	'quality-gate-targets\.sh' \
 	'--base "\$base_sha"' \
 	'--head "\$head_sha"' \
 	'--output "\$GITHUB_OUTPUT"' \
@@ -30,8 +35,8 @@ for required in \
 	'fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1' \
 	'8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156' \
 	'72a930c9a94fc3914aa56835c5b859c892a797d40c1c42638b98d93f16ff519c' \
-	'\.guardrails/scripts/localization-check\.sh --changed --base "\$base_sha" --head "\$head_sha" --repo "\$GITHUB_WORKSPACE"' \
-	'needs\.detect_changes\.outputs\.ast_grep == '\''true'\''' \
+	'\.guardrails/scripts/localization-check\.sh --files-from "\$localization_files" --repo "\$GITHUB_WORKSPACE"' \
+	'needs\.detect_changes\.outputs\.swift == '\''true'\'' \|\| needs\.detect_changes\.outputs\.ast_grep == '\''true'\''' \
 	'ast-grep scan --config \.guardrails/sgconfig\.yml --report-style short'; do
 	if ! rg -q -- "$required" "$WORKFLOW"; then
 		echo "FAIL: QualityGates must wire ast-grep rule: $required" >&2
@@ -39,9 +44,20 @@ for required in \
 	fi
 done
 
+for required_doc in \
+	'commit時はstagedファイルだけをcheck-onlyで検査' \
+	'PR時はmerge-baseからheadまでの変更ファイルだけを検査' \
+	'全trackedファイル検査はPR必須ゲートから分離'; do
+	if ! grep -Fq "$required_doc" "$ROOT_DIR/README.md"; then
+		echo "FAIL: README must document the target-scope contract: $required_doc" >&2
+		exit 1
+	fi
+done
+
 # shellcheck disable=SC2016
 for required in \
 	'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/secretlint" --secretlintrc .guardrails/.secretlintrc.json --' \
+	'xargs -0 .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE" --' \
 	'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/markdownlint-cli2" --config .guardrails/.markdownlint-cli2.yaml --' \
 	'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/eslint" --config .guardrails/eslint.config.js --no-config-lookup --' \
 	'xargs -0 -r ruff check --' \
@@ -60,7 +76,11 @@ for forbidden in \
 	'uses: actions/checkout@v[0-9]' \
 	'npm install' \
 	'pipx install ruff$' \
-	'\$PWD/node_modules/\.bin'; do
+	'\$PWD/node_modules/\.bin' \
+	'git ls-files -z' \
+	'text-spacing-check\.sh --all' \
+	'typos-check\.sh --changed' \
+	'localization-check\.sh --changed'; do
 	if rg -q "$forbidden" "$WORKFLOW"; then
 		echo "FAIL: QualityGates contains mutable dependency: $forbidden" >&2
 		exit 1
@@ -82,8 +102,8 @@ if rg -q 'git diff --name-only --diff-filter=ACMRT .* \|\| true' "$WORKFLOW"; th
 	exit 1
 fi
 
-if [[ "$(rg -c '^          fetch-depth: 0$' "$WORKFLOW")" != "1" ]]; then
-	echo "FAIL: change detection checkout must define fetch-depth exactly once" >&2
+if [[ "$(rg -c '^          fetch-depth: 0$' "$WORKFLOW")" != "3" ]]; then
+	echo "FAIL: every change-scoped job checkout must define fetch-depth: 0" >&2
 	exit 1
 fi
 

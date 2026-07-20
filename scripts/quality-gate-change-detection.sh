@@ -5,6 +5,7 @@ repo=""
 base=""
 head=""
 output=""
+all=0
 
 while (($# > 0)); do
 	case "$1" in
@@ -24,6 +25,10 @@ while (($# > 0)); do
 		output="$2"
 		shift 2
 		;;
+	--all)
+		all=1
+		shift
+		;;
 	*)
 		printf 'error: unknown argument: %s\n' "$1" >&2
 		exit 2
@@ -39,70 +44,45 @@ done
 	printf 'error: --output is required\n' >&2
 	exit 2
 }
-
-any=false
-ast_grep=false
-eslint=false
-localization=false
-markdownlint=false
-ruff=false
-shell=false
-swift=false
-text_spacing=false
-treefmt_non_swift=false
-
-classify_path() {
-	local path="$1"
-	any=true
-	case "$path" in
-	*.swift)
-		ast_grep=true
-		localization=true
-		swift=true
-		;;
-	*.xcstrings)
-		localization=true
-		text_spacing=true
-		treefmt_non_swift=true
-		;;
-	esac
-	case "$path" in
-	*.cjs | *.js | *.mjs | *.ts) eslint=true ;;
-	esac
-	case "$path" in
-	*.md) markdownlint=true ;;
-	esac
-	case "$path" in
-	*.py) ruff=true ;;
-	esac
-	case "$path" in
-	*.sh) shell=true ;;
-	esac
-	case "$path" in
-	*.css | *.html | *.json | *.jsonc | *.md | *.toml | *.txt | *.yaml | *.yml)
-		text_spacing=true
-		;;
-	esac
-	case "$path" in
-	*.cjs | *.css | *.entitlements | *.html | *.ipynb | *.js | *.json | *.jsonc | *.md | *.mjs | *.plist | *.py | *.sh | *.svg | *.toml | *.ts | *.tsx | *.xcscheme | *.xcstrings | *.xctestplan | *.xcworkspacedata | *.xml | *.xsd | *.yaml | *.yml)
-		treefmt_non_swift=true
-		;;
-	esac
-}
-
-cd "$repo"
-if [[ -n "$base" && "$base" != "0000000000000000000000000000000000000000" ]]; then
-	while IFS= read -r -d '' path; do
-		classify_path "$path"
-	done < <(git diff --name-only -z --diff-filter=ACMRT "$base" "$head" --)
-else
-	while IFS= read -r -d '' path; do
-		classify_path "$path"
-	done < <(git ls-files -z)
+if [[ "$all" == 0 && (-z "$base" || -z "$head") ]]; then
+	printf 'error: --base and --head are required unless --all is used\n' >&2
+	exit 2
+fi
+if [[ "$all" == 1 && (-n "$base" || -n "$head") ]]; then
+	printf 'error: --all cannot be combined with --base or --head\n' >&2
+	exit 2
 fi
 
-secretlint="$any"
-typos="$any"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+targets_file="$(mktemp "${TMPDIR:-/tmp}/quality-gate-change-detection.XXXXXX")"
+trap 'rm -f "$targets_file"' EXIT
+scope_args=(--all)
+if [[ "$all" == 0 ]]; then
+	scope_args=(--changed --base "$base" --head "$head")
+fi
+
+has_targets() {
+	local kind="$1"
+	"$script_dir/quality-gate-targets.sh" --repo "$repo" "${scope_args[@]}" --kind "$kind" >"$targets_file"
+	if [[ -s "$targets_file" ]]; then
+		printf 'true'
+	else
+		printf 'false'
+	fi
+}
+
+any="$(has_targets any)"
+ast_grep="$(has_targets ast_grep)"
+eslint="$(has_targets eslint)"
+localization="$(has_targets localization)"
+markdownlint="$(has_targets markdownlint)"
+ruff="$(has_targets ruff)"
+secretlint="$(has_targets secretlint)"
+shell="$(has_targets shell)"
+swift="$(has_targets swift)"
+text_spacing="$(has_targets text_spacing)"
+treefmt_non_swift="$(has_targets treefmt_non_swift)"
+typos="$(has_targets typos)"
 ubuntu=false
 for needed in "$eslint" "$localization" "$markdownlint" "$ruff" "$secretlint" "$shell" "$text_spacing" "$treefmt_non_swift" "$typos"; do
 	if [[ "$needed" == true ]]; then

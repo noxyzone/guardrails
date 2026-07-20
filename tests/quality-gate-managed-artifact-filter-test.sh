@@ -7,6 +7,7 @@ WORKFLOW="$ROOT_DIR/.github/workflows/quality-gates.yml"
 
 actual="$({
 	printf '%s\n' \
+		'.agents/skills/.system/imagegen/SKILL.md' \
 		'.agents/skills/aidlc-build-and-test/SKILL.md' \
 		'.codex/agents/aidlc-quality-agent.toml' \
 		'.codex/aidlc-common/conductor.md' \
@@ -42,8 +43,7 @@ fi
 # These assertions intentionally preserve child-shell variables as literal workflow text.
 # shellcheck disable=SC2016
 for required in \
-	'git ls-files -z' \
-	'.guardrails/scripts/quality-gate-path-filter.sh --null' \
+	'.guardrails/scripts/quality-gate-targets.sh' \
 	'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/secretlint"' \
 	'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/eslint"' \
 	'xargs -0 -r shellcheck --' \
@@ -58,14 +58,15 @@ done
 # shellcheck disable=SC2016
 for forbidden in \
 	'printf '\''%s\n'\'' "$files" | xargs' \
-	'printf '\''%s\n'\'' "$swift_files" | xargs'; do
+	'printf '\''%s\n'\'' "$swift_files" | xargs' \
+	'git ls-files -z'; do
 	if rg -Fq "$forbidden" "$WORKFLOW"; then
 		printf 'FAIL: QualityGates contains unsafe newline-delimited file arguments: %s\n' "$forbidden" >&2
 		exit 1
 	fi
 done
 
-for script in "$ROOT_DIR/scripts/text-spacing-check.sh" "$ROOT_DIR/scripts/typos-check.sh" "$ROOT_DIR/scripts/treefmt-check.sh"; do
+for script in "$ROOT_DIR/scripts/quality-gate-targets.sh" "$ROOT_DIR/scripts/text-spacing-check.sh" "$ROOT_DIR/scripts/typos-check.sh" "$ROOT_DIR/scripts/treefmt-check.sh"; do
 	if ! rg -q 'quality-gate-path-filter\.sh' "$script"; then
 		printf 'FAIL: managed artifact filtering is not wired into %s\n' "$script" >&2
 		exit 1

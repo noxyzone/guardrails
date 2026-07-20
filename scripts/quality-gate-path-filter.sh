@@ -8,7 +8,8 @@ usage() {
 
 is_managed_artifact_path() {
 	case "$1" in
-	.agents/skills/aidlc* | \
+	.agents/skills/.system | .agents/skills/.system/* | \
+		.agents/skills/aidlc* | \
 		.codex/agents/aidlc-* | \
 		.codex/aidlc-common | .codex/aidlc-common/* | \
 		.codex/hooks/aidlc-* | \
@@ -38,6 +39,7 @@ if (($# == 1)); then
 	fi
 	[[ "$1" == "--treefmt-excludes" ]] || usage
 	printf '%s\n' \
+		'.agents/skills/.system/**' \
 		'.agents/skills/aidlc*/**' \
 		'.codex/agents/aidlc-*/**' \
 		'.codex/aidlc-common/**' \

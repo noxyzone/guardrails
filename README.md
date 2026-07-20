@@ -25,6 +25,26 @@
 
 ## ローカル確認
 
+### 対象scopeの契約
+
+- commit時はstagedファイルだけをcheck-onlyで検査し、hookからworktreeやindexを整形・再stageしません。
+- PR時はmerge-baseからheadまでの変更ファイルだけを検査し、未変更ファイルの既存違反をPRの失敗理由にしません。
+- formatter／linter設定を変更した場合は、その設定が支配するファイル種別の全trackedファイルへ対象を拡張します。
+- 全trackedファイル検査はPR必須ゲートから分離し、定期実行、手動実行、またはrelease前backstopとして`scope: all`で呼び出します。
+- 対象抽出、AIDLC管理path除外、ファイル種別分類の正本は`scripts/quality-gate-targets.sh`です。staged、PR差分、全量の入口だけを切り替え、各toolで独自に対象を再抽出しません。
+- pathはNUL区切りでtool直前まで保持します。対応toolへ安全に渡せない改行入りpathは、誤ったファイルを検査する代わりにfail closedします。
+
+PR callerは既定の`changed`scopeを使います。定期全体検査のcallerは同じ再利用workflowへ`scope: all`を渡します。
+
+```yaml
+jobs:
+  quality-gates:
+    uses: noxyzone/guardrails/.github/workflows/quality-gates.yml@<reviewed-commit-sha>
+    with:
+      guardrails-ref: <reviewed-commit-sha>
+      scope: all
+```
+
 TextSpacingとLocalizationはCIとローカル確認で同じ実装を使います。完了前の全量確認では次を実行します。
 
 ```bash
@@ -46,7 +66,7 @@ scripts/typos-check.sh --changed --base BASE --head HEAD --repo /path/to/repo
 scripts/typos-check.sh --staged --repo /path/to/repo
 ```
 
-pre-commitではTextSpacing、Localization、Typosを`--staged`で呼び、staged fileだけを補助的に確認します。
+pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstaged file一覧を、TextSpacing、Localization、Typosを含む各ゲートへ渡します。
 
 ## 除外ルール
 

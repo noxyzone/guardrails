@@ -7,6 +7,11 @@ on:
         description: Revision of noxyzone/guardrails to checkout for shared guardrail assets.
         required: true
         type: string
+      scope:
+        description: File scope for quality gates. Use changed for PRs and all for scheduled or release backstops.
+        required: false
+        default: changed
+        type: string
 
 jobs:
   detect_changes:
@@ -50,10 +55,16 @@ jobs:
 
           base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          scope_args=(--changed --base "$base_sha" --head "$head_sha")
+          if [[ "${{ inputs.scope }}" == "all" ]]; then
+            scope_args=(--all)
+          elif [[ "${{ inputs.scope }}" != "changed" ]]; then
+            echo "error: scope must be changed or all" >&2
+            exit 2
+          fi
           .guardrails/scripts/quality-gate-change-detection.sh \
             --repo "$GITHUB_WORKSPACE" \
-            --base "$base_sha" \
-            --head "$head_sha" \
+            "${scope_args[@]}" \
             --output "$GITHUB_OUTPUT"
 
   ubuntu_guardrails:
@@ -69,6 +80,7 @@ jobs:
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Checkout guardrails
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
@@ -77,6 +89,28 @@ jobs:
           ref: ${{ inputs.guardrails-ref }}
           path: .guardrails
           persist-credentials: false
+
+      - name: Prepare changed-file targets
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          scope_args=(--changed --base "$base_sha" --head "$head_sha")
+          if [[ "${{ inputs.scope }}" == "all" ]]; then
+            scope_args=(--all)
+          elif [[ "${{ inputs.scope }}" != "changed" ]]; then
+            echo "error: scope must be changed or all" >&2
+            exit 2
+          fi
+          target_dir="$RUNNER_TEMP/quality-gate-targets"
+          mkdir -p "$target_dir"
+          for kind in secretlint treefmt_non_swift text_spacing typos localization markdownlint eslint ruff shell; do
+            .guardrails/scripts/quality-gate-targets.sh \
+              --repo "$GITHUB_WORKSPACE" \
+              "${scope_args[@]}" \
+              --kind "$kind" >"$target_dir/$kind.bin"
+          done
 
       - name: Install apt tools
         run: |
@@ -138,11 +172,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          git ls-files -z \
-            | .guardrails/scripts/quality-gate-path-filter.sh --null \
-            | while IFS= read -r -d '' path; do
-                [ -L "$path" ] || [ ! -e "$path" ] || printf '%s\0' "$path"
-              done \
+          while IFS= read -r -d '' path; do
+            [ -L "$path" ] || [ ! -e "$path" ] || printf '%s\0' "$path"
+          done <"$RUNNER_TEMP/quality-gate-targets/secretlint.bin" \
             | xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/secretlint" --secretlintrc .guardrails/.secretlintrc.json --
 
       - name: Run Treefmt
@@ -151,32 +183,37 @@ jobs:
           set -euo pipefail
 
           export PATH="$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
-          .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE"
+          targets="$RUNNER_TEMP/quality-gate-targets/treefmt_non_swift.bin"
+          if [[ -s "$targets" ]]; then
+            xargs -0 .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE" -- <"$targets"
+          fi
 
       - name: Run TextSpacing
         if: ${{ needs.detect_changes.outputs.text_spacing == 'true' }}
         run: |
           set -euo pipefail
 
-          .guardrails/scripts/text-spacing-check.sh --all --repo "$GITHUB_WORKSPACE"
+          text_spacing_files="$RUNNER_TEMP/quality-gate-targets/text_spacing.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/text_spacing.bin" >"$text_spacing_files"
+          .guardrails/scripts/text-spacing-check.sh --files-from "$text_spacing_files" --repo "$GITHUB_WORKSPACE"
 
       - name: Run Typos
         if: ${{ needs.detect_changes.outputs.typos == 'true' }}
         run: |
           set -euo pipefail
 
-          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
-          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
-          .guardrails/scripts/typos-check.sh --changed --base "$base_sha" --head "$head_sha" --repo "$GITHUB_WORKSPACE"
+          typos_files="$RUNNER_TEMP/quality-gate-targets/typos.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/typos.bin" >"$typos_files"
+          .guardrails/scripts/typos-check.sh --files-from "$typos_files" --repo "$GITHUB_WORKSPACE"
 
       - name: Run Localization
         if: ${{ needs.detect_changes.outputs.localization == 'true' }}
         run: |
           set -euo pipefail
 
-          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
-          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
-          .guardrails/scripts/localization-check.sh --changed --base "$base_sha" --head "$head_sha" --repo "$GITHUB_WORKSPACE"
+          localization_files="$RUNNER_TEMP/quality-gate-targets/localization.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/localization.bin" >"$localization_files"
+          .guardrails/scripts/localization-check.sh --files-from "$localization_files" --repo "$GITHUB_WORKSPACE"
 
       - name: Run MarkdownLint
         if: ${{ needs.detect_changes.outputs.markdownlint == 'true' }}
@@ -187,8 +224,7 @@ jobs:
           if [ ! -f "$markdownlint_ignore" ]; then
             markdownlint_ignore=".guardrails/.markdownlintignore"
           fi
-          git ls-files -z '*.md' \
-            | while IFS= read -r -d '' path; do
+          while IFS= read -r -d '' path; do
                 ignored=false
                 if [ -f "$markdownlint_ignore" ]; then
                   while IFS= read -r pattern || [ -n "$pattern" ]; do
@@ -200,8 +236,8 @@ jobs:
                     fi
                   done < "$markdownlint_ignore"
                 fi
-                [ "$ignored" = true ] || printf '%s\0' "$path"
-              done \
+            [ "$ignored" = true ] || printf '%s\0' "$path"
+          done <"$RUNNER_TEMP/quality-gate-targets/markdownlint.bin" \
             | xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/markdownlint-cli2" --config .guardrails/.markdownlint-cli2.yaml --
 
       - name: Run ESLint
@@ -209,11 +245,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          git ls-files -z \
-            | .guardrails/scripts/quality-gate-path-filter.sh --null \
-            | while IFS= read -r -d '' path; do
-                [[ "$path" =~ \.(js|cjs|mjs|ts)$ ]] && printf '%s\0' "$path"
-              done \
+          cat "$RUNNER_TEMP/quality-gate-targets/eslint.bin" \
             | xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/eslint" --config .guardrails/eslint.config.js --no-config-lookup --
 
       - name: Run Ruff
@@ -221,7 +253,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          git ls-files -z '*.py' | xargs -0 -r ruff check --
+          xargs -0 -r ruff check -- <"$RUNNER_TEMP/quality-gate-targets/ruff.bin"
 
       - name: Run Shebang
         if: ${{ needs.detect_changes.outputs.shell == 'true' }}
@@ -241,13 +273,7 @@ jobs:
               echo "[shebang] /usr/bin/envを使ってください: $file" >&2
               failed=1
             fi
-          done < <(git ls-files -z | while IFS= read -r -d '' path; do
-            if [[ "$path" == *.sh ]]; then
-              printf '%s\0' "$path"
-            elif [ -f "$path" ] && file -- "$path" | grep -q 'shell script'; then
-              printf '%s\0' "$path"
-            fi
-          done)
+          done <"$RUNNER_TEMP/quality-gate-targets/shell.bin"
           exit "$failed"
 
       - name: Run ShellCheck
@@ -255,16 +281,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          git ls-files -z | while IFS= read -r -d '' path; do
+          while IFS= read -r -d '' path; do
             if [[ "$path" == *.sh ]] && [[ "$path" != */zsh/* ]]; then
               printf '%s\0' "$path"
             elif [ -f "$path" ] && file -- "$path" | grep -q 'shell script' && file -- "$path" | grep -qv 'zsh'; then
               printf '%s\0' "$path"
             fi
-          done | xargs -0 -r shellcheck --
+          done <"$RUNNER_TEMP/quality-gate-targets/shell.bin" | xargs -0 -r shellcheck --
 
   macos_guardrails:
-    if: ${{ needs.detect_changes.outputs.swift == 'true' }}
+    if: ${{ needs.detect_changes.outputs.swift == 'true' || needs.detect_changes.outputs.ast_grep == 'true' }}
     runs-on: macos-15
     timeout-minutes: 10
     needs:
@@ -276,6 +302,7 @@ jobs:
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Checkout guardrails
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
@@ -284,6 +311,28 @@ jobs:
           ref: ${{ inputs.guardrails-ref }}
           path: .guardrails
           persist-credentials: false
+
+      - name: Prepare changed-file targets
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          scope_args=(--changed --base "$base_sha" --head "$head_sha")
+          if [[ "${{ inputs.scope }}" == "all" ]]; then
+            scope_args=(--all)
+          elif [[ "${{ inputs.scope }}" != "changed" ]]; then
+            echo "error: scope must be changed or all" >&2
+            exit 2
+          fi
+          target_dir="$RUNNER_TEMP/quality-gate-targets"
+          mkdir -p "$target_dir"
+          for kind in ast_grep swift; do
+            .guardrails/scripts/quality-gate-targets.sh \
+              --repo "$GITHUB_WORKSPACE" \
+              "${scope_args[@]}" \
+              --kind "$kind" >"$target_dir/$kind.bin"
+          done
 
       - name: Install Swift tools
         env:
@@ -303,15 +352,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          git ls-files -z '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**' \
-            | xargs -0 ast-grep scan --config .guardrails/sgconfig.yml --report-style short --
+          targets="$RUNNER_TEMP/quality-gate-targets/ast_grep.bin"
+          if [[ -s "$targets" ]]; then
+            xargs -0 ast-grep scan --config .guardrails/sgconfig.yml --report-style short -- <"$targets"
+          fi
 
       - name: Run SwiftLint
         run: |
           set -euo pipefail
 
-          git ls-files -z '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**' \
-            | xargs -0 swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml --
+          targets="$RUNNER_TEMP/quality-gate-targets/swift.bin"
+          if [[ -s "$targets" ]]; then
+            xargs -0 swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml -- <"$targets"
+          fi
 
       - name: Verify shared formatter config links
         run: |
@@ -326,8 +379,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          git ls-files -z '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**' \
-            | xargs -0 swiftformat --lint --config .guardrails/.swiftformat --
+          targets="$RUNNER_TEMP/quality-gate-targets/swift.bin"
+          if [[ -s "$targets" ]]; then
+            xargs -0 swiftformat --lint --config .guardrails/.swiftformat -- <"$targets"
+          fi
 
   quality_gates:
     if: ${{ always() }}
