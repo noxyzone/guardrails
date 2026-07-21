@@ -6,22 +6,23 @@
 
 ## 共有ゲート
 
-| ゲート       | workflow                              | 主な対象                                                   | 検出・確認内容                                                                        |
-| ------------ | ------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| GitIdentity  | `.github/workflows/git-identity.yml`  | commit author/committer                                    | GitHub noreply email以外の公開混入                                                    |
-| QualityGates | `.github/workflows/quality-gates.yml` | PRで変更されたファイル種別に応じた各guardrails検査         | 変更ファイル判定、不要job skip、各guardrails検査結果の集約                            |
-| SecretLint   | `.github/workflows/secretlint.yml`    | Git管理下の実ファイル                                      | API key、token、password、秘密鍵などの秘密情報混入                                    |
-| Treefmt      | `.github/workflows/treefmt.yml`       | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | Ubuntuでの非Swift整形差分、macOSでのSwiftFormat差分、repoローカル`.swiftformat`の混入 |
-| TextSpacing  | `.github/workflows/text-spacing.yml`  | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース                                                |
-| Typos        | `.github/workflows/typos.yml`         | Git管理下の実ファイル                                      | ソースコード・ドキュメント・ファイル名の既知typo                                      |
-| Localization | `.github/workflows/localization.yml`  | `*.xcstrings`、SwiftのAppKit/独自UI入口                    | 日本語ローカライズ欠落、SwiftUI自動抽出に乗らないUI文字列の直書き                     |
-| SwiftLint    | `.github/workflows/swiftlint.yml`     | `*.swift`                                                  | SwiftLint標準ルールと`print()`・`try?`禁止などの独自ルール                            |
-| MarkdownLint | `.github/workflows/markdownlint.yml`  | `*.md`                                                     | 見出し、リスト、空行などのMarkdown記法                                                |
-| ESLint       | `.github/workflows/eslint.yml`        | `*.js`、`*.cjs`、`*.mjs`、`*.ts`                           | ESLint指摘                                                                            |
-| Ruff         | `.github/workflows/ruff.yml`          | `*.py`                                                     | Ruff指摘                                                                              |
-| ast-grep     | `.github/workflows/ast-grep.yml`      | `*.swift`                                                  | Swift構造ルール（通知送信、管理外型extension、UIテスト環境判定、非仮想化一覧）        |
-| Shebang      | `.github/workflows/shebang.yml`       | shell script                                               | `#!/bin/bash`等を検出し、`#!/usr/bin/env bash`を要求                                  |
-| ShellCheck   | `.github/workflows/shellcheck.yml`    | zsh系を除くshell script                                    | ShellCheck指摘                                                                        |
+| ゲート       | workflow                               | 主な対象                                                   | 検出・確認内容                                                                             |
+| ------------ | -------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| GitIdentity  | `.github/workflows/git-identity.yml`   | commit author/committer                                    | GitHub noreply email以外の公開混入                                                         |
+| QualityGates | `.github/workflows/quality-gates.yml`  | PRで変更されたファイル種別に応じた各guardrails検査         | 変更ファイル判定、不要job skip、各guardrails検査結果の集約                                 |
+| SecretLint   | `.github/workflows/secretlint.yml`     | Git管理下の実ファイル                                      | API key、token、password、秘密鍵などの秘密情報混入                                         |
+| Treefmt      | `.github/workflows/treefmt.yml`        | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | Ubuntuでの非Swift整形差分、macOSでのSwiftFormat差分、repoローカル`.swiftformat`の混入      |
+| TextSpacing  | `.github/workflows/text-spacing.yml`   | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース                                                     |
+| Typos        | `.github/workflows/typos.yml`          | Git管理下の実ファイル                                      | ソースコード・ドキュメント・ファイル名の既知typo                                           |
+| Localization | `.github/workflows/localization.yml`   | `*.xcstrings`、SwiftのAppKit/独自UI入口                    | 日本語ローカライズ欠落、SwiftUI自動抽出に乗らないUI文字列の直書き                          |
+| SwiftLint    | `.github/workflows/swiftlint.yml`      | `*.swift`                                                  | SwiftLint標準ルールと`print()`・`try?`禁止などの独自ルール                                 |
+| MarkdownLint | `.github/workflows/markdownlint.yml`   | `*.md`                                                     | 見出し、リスト、空行などのMarkdown記法                                                     |
+| ESLint       | `.github/workflows/eslint.yml`         | `*.js`、`*.cjs`、`*.mjs`、`*.ts`                           | ESLint指摘                                                                                 |
+| Ruff         | `.github/workflows/ruff.yml`           | `*.py`                                                     | Ruff指摘                                                                                   |
+| ast-grep     | `.github/workflows/ast-grep.yml`       | `*.swift`                                                  | Swift構造ルール（通知送信、管理外型extension、UIテスト環境判定、非仮想化一覧）             |
+| Shebang      | `.github/workflows/shebang.yml`        | shell script                                               | `#!/bin/bash`等を検出し、`#!/usr/bin/env bash`を要求                                       |
+| ShellCheck   | `.github/workflows/shellcheck.yml`     | zsh系を除くshell script                                    | ShellCheck指摘                                                                             |
+| LLMCLIStream | `.github/workflows/llm-cli-stream.yml` | zsh系を除くshell script                                    | LLM CLI等サブプロセス出力を`tee`でstdoutへ複製しオーケストレータのstdoutを浪費する垂れ流し |
 
 ## ローカル確認
 
@@ -75,7 +76,7 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
 - SecretLint
   symlinkと存在しないpathを除外します。
 - QualityGates
-  PRの変更ファイルを判定し、対象ファイル種別がないjobはskipします。Ubuntu側でSecretLint、Treefmtの非Swift対象、TextSpacing、Typos、Localization、MarkdownLint、ESLint、Ruff、Shebang、ShellCheckを実行し、macOS側でast-grep、SwiftLint、SwiftFormatを実行します。最後に`quality_gates`jobで結果を集約します。
+  PRの変更ファイルを判定し、対象ファイル種別がないjobはskipします。Ubuntu側でSecretLint、Treefmtの非Swift対象、TextSpacing、Typos、Localization、MarkdownLint、ESLint、Ruff、Shebang、ShellCheck、LLMCLIStreamを実行し、macOS側でast-grep、SwiftLint、SwiftFormatを実行します。最後に`quality_gates`jobで結果を集約します。
 - Treefmt
   `treefmt.toml`に従います。現在は`.agents/skills/.system/**`、`artifacts/**`を除外します。GitHubActionsでは非Swift整形をUbuntuのTreefmt jobで実行し、SwiftFormatだけをmacOS jobへ分離します。repoローカルの`.swiftformat`は許可せず、共有`guardrails/.swiftformat`を使います。
 - TextSpacing
@@ -98,6 +99,8 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
   明示除外はありません。
 - ShellCheck
   `*/zsh/*`とzsh判定されたshell scriptを除外します。
+- LLMCLIStream
+  `*/zsh/*`とzsh判定されたshell scriptを除外し、`contrib/`、`vendor/`、`node_modules/`、`.claude/plugins/`、`plugins/cache/`配下を対象外にします。`printf`・`echo`・`sed`等の小出力producerと、`>/dev/null`で無音化したtee、`# guardrail-allow: llm-cli-stream`付き行は除外します。
 
 ## 設定ファイル
 

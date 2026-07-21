@@ -289,6 +289,15 @@ jobs:
             fi
           done <"$RUNNER_TEMP/quality-gate-targets/shell.bin" | xargs -0 -r shellcheck --
 
+      - name: Run LLMCLIStream
+        if: ${{ needs.detect_changes.outputs.shell == 'true' }}
+        run: |
+          set -euo pipefail
+
+          llm_cli_stream_files="$RUNNER_TEMP/quality-gate-targets/llm-cli-stream.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/shell.bin" >"$llm_cli_stream_files"
+          .guardrails/scripts/llm-cli-stream-check.sh --files-from "$llm_cli_stream_files" --repo "$GITHUB_WORKSPACE"
+
   macos_guardrails:
     if: ${{ needs.detect_changes.outputs.swift == 'true' || needs.detect_changes.outputs.ast_grep == 'true' }}
     runs-on: macos-15
