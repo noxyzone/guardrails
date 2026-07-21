@@ -9,3 +9,6 @@
 
 # MCPメモリサーバーが出力するJSONL形式ファイル
 .secretary/knowledge.json
+
+# OpenAI公式system skill配布物
+**/.agents/skills/.system/**
