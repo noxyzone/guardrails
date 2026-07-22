@@ -40,6 +40,17 @@ if [[ "$null_actual" != "$null_expected" ]]; then
 	exit 1
 fi
 
+treefmt_excludes="$("$FILTER" --treefmt-excludes)"
+for required_exclude in \
+	'.codex/agents/aidlc-*' \
+	'.codex/scopes/aidlc-*' \
+	'.codex/sensors/aidlc-*'; do
+	if ! printf '%s\n' "$treefmt_excludes" | rg -Fxq -- "$required_exclude"; then
+		printf 'FAIL: Treefmt excludes do not cover managed artifact path: %s\n' "$required_exclude" >&2
+		exit 1
+	fi
+done
+
 # These assertions intentionally preserve child-shell variables as literal workflow text.
 # shellcheck disable=SC2016
 for required in \

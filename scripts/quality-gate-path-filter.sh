@@ -42,12 +42,15 @@ if (($# == 1)); then
 		'.agents/skills/.system/**' \
 		'.agents/skills/aidlc*/**' \
 		'.codex/agents/aidlc-*/**' \
+		'.codex/agents/aidlc-*' \
 		'.codex/aidlc-common/**' \
 		'.codex/hooks/aidlc-*/**' \
 		'.codex/hooks/aidlc-*' \
 		'.codex/knowledge/aidlc-*/**' \
 		'.codex/scopes/aidlc-*/**' \
+		'.codex/scopes/aidlc-*' \
 		'.codex/sensors/aidlc-*/**' \
+		'.codex/sensors/aidlc-*' \
 		'.codex/tools/aidlc-*/**' \
 		'.codex/tools/aidlc-*' \
 		'.codex/tools/data/**' \
