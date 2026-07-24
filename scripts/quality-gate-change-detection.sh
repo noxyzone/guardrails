@@ -6,6 +6,8 @@ base=""
 head=""
 output=""
 all=0
+range_mode="merge-base"
+range_mode_selected=0
 
 while (($# > 0)); do
 	case "$1" in
@@ -23,6 +25,11 @@ while (($# > 0)); do
 		;;
 	--output)
 		output="$2"
+		shift 2
+		;;
+	--range-mode)
+		range_mode="$2"
+		range_mode_selected=1
 		shift 2
 		;;
 	--all)
@@ -52,13 +59,21 @@ if [[ "$all" == 1 && (-n "$base" || -n "$head") ]]; then
 	printf 'error: --all cannot be combined with --base or --head\n' >&2
 	exit 2
 fi
+if [[ "$range_mode" != merge-base && "$range_mode" != direct ]]; then
+	printf 'error: --range-mode must be merge-base or direct\n' >&2
+	exit 2
+fi
+if [[ "$all" == 1 && "$range_mode_selected" == 1 ]]; then
+	printf 'error: --all cannot be combined with --range-mode\n' >&2
+	exit 2
+fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 targets_file="$(mktemp "${TMPDIR:-/tmp}/quality-gate-change-detection.XXXXXX")"
 trap 'rm -f "$targets_file"' EXIT
 scope_args=(--all)
 if [[ "$all" == 0 ]]; then
-	scope_args=(--changed --base "$base" --head "$head")
+	scope_args=(--changed --base "$base" --head "$head" --range-mode "$range_mode")
 fi
 
 has_targets() {

@@ -32,6 +32,7 @@ output="$FIXTURE/outputs.txt"
 	--repo "$FIXTURE" \
 	--base "$base_sha" \
 	--head "$head_sha" \
+	--range-mode direct \
 	--output "$output"
 
 for expected in \
@@ -75,6 +76,25 @@ config_output="$FIXTURE/config-outputs.txt"
 	--output "$config_output"
 if ! grep -Fxq 'swift=true' "$config_output"; then
 	printf 'FAIL: SwiftLint config changes must expand and enable the Swift gate\n' >&2
+	exit 1
+fi
+
+if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
+	--repo "$FIXTURE" \
+	--base "$base_sha" \
+	--head "$head_sha" \
+	--range-mode invalid \
+	--output "$FIXTURE/invalid-range-mode.txt" 2>/dev/null; then
+	printf 'FAIL: invalid range mode was accepted\n' >&2
+	exit 1
+fi
+
+if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
+	--repo "$FIXTURE" \
+	--all \
+	--range-mode direct \
+	--output "$FIXTURE/all-with-range-mode.txt" 2>/dev/null; then
+	printf 'FAIL: all scope accepted a range mode\n' >&2
 	exit 1
 fi
 
