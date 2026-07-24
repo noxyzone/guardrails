@@ -86,6 +86,28 @@ swift_output="$FIXTURE/swift.bin"
 "$TARGETS" --repo "$repo" --changed --base "$swift_base_commit" --head "$swift_config_commit" --kind swift >"$swift_output"
 assert_null_paths "$swift_output" "Sources/Changed.swift" "Sources/Unchanged.swift"
 
+git -C "$repo" read-tree "$swift_config_tree"
+git -C "$repo" update-index --force-remove .swiftlint.yml
+swift_config_deleted_tree="$(git -C "$repo" write-tree)"
+swift_config_deleted_commit="$(
+	printf 'swift config deleted\n' |
+		git -C "$repo" commit-tree "$swift_config_deleted_tree" -p "$swift_config_commit"
+)"
+swift_config_deleted_output="$FIXTURE/swift-config-deleted.bin"
+"$TARGETS" \
+	--repo "$repo" \
+	--changed \
+	--base "$swift_config_commit" \
+	--head "$swift_config_deleted_commit" \
+	--kind swift >"$swift_config_deleted_output"
+assert_null_paths "$swift_config_deleted_output" "Sources/Changed.swift" "Sources/Unchanged.swift"
+
+git -C "$repo" read-tree --reset "$swift_config_commit"
+git -C "$repo" update-index --force-remove .swiftlint.yml
+swift_config_staged_deleted_output="$FIXTURE/swift-config-staged-deleted.bin"
+"$TARGETS" --repo "$repo" --staged --kind swift >"$swift_config_staged_deleted_output"
+assert_null_paths "$swift_config_staged_deleted_output" "Sources/Changed.swift" "Sources/Unchanged.swift"
+
 diverged_repo="$FIXTURE/diverged-repo"
 mkdir -p "$diverged_repo"
 git -C "$diverged_repo" init -q
@@ -110,6 +132,16 @@ head_branch_commit="$(printf 'head branch\n' | git -C "$diverged_repo" commit-tr
 diverged_output="$FIXTURE/diverged.bin"
 "$TARGETS" --repo "$diverged_repo" --changed --base "$base_branch_commit" --head "$head_branch_commit" --kind any >"$diverged_output"
 assert_null_paths "$diverged_output" "head.txt"
+
+direct_output="$FIXTURE/direct.bin"
+"$TARGETS" \
+	--repo "$diverged_repo" \
+	--changed \
+	--range-mode direct \
+	--base "$base_branch_commit" \
+	--head "$head_branch_commit" \
+	--kind any >"$direct_output"
+assert_null_paths "$direct_output" "head.txt" "shared.txt"
 
 newline_path=$'docs/line\nbreak.md'
 printf '# newline\n' >"$repo/$newline_path"

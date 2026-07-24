@@ -6,10 +6,11 @@ mode=""
 base=""
 head=""
 kind=""
+range_mode="merge-base"
 
 usage() {
 	cat <<'USAGE' >&2
-usage: quality-gate-targets.sh --repo PATH (--staged | --changed --base SHA --head SHA | --all) --kind KIND
+usage: quality-gate-targets.sh --repo PATH (--staged | --changed --base SHA --head SHA [--range-mode merge-base|direct] | --all) --kind KIND
 
 Writes matching paths as a NUL-delimited stream. KIND is one of:
   any ast_grep eslint localization markdownlint ruff secretlint shell swift
@@ -47,6 +48,11 @@ while (($# > 0)); do
 		head="$2"
 		shift 2
 		;;
+	--range-mode)
+		(($# >= 2)) || usage
+		range_mode="$2"
+		shift 2
+		;;
 	--kind)
 		(($# >= 2)) || usage
 		kind="$2"
@@ -64,6 +70,13 @@ esac
 if [[ "$mode" == "changed" && (-z "$base" || -z "$head") ]]; then
 	usage
 fi
+case "$range_mode" in
+direct | merge-base) ;;
+*) usage ;;
+esac
+if [[ "$mode" != "changed" && "$range_mode" != "merge-base" ]]; then
+	usage
+fi
 git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
 	printf 'error: --repo must identify a Git worktree: %s\n' "$repo" >&2
 	exit 2
@@ -79,17 +92,34 @@ write_scope_paths() {
 	local output="$1"
 	case "$mode" in
 	staged)
-		git -C "$repo" -c core.quotepath=false diff -z --cached --name-only --diff-filter=ACMRT -- >"$output"
+		git -C "$repo" -c core.quotepath=false diff -z --cached --name-only --diff-filter=ACMRTD -- >"$output"
 		;;
 	changed)
 		if [[ "$base" == "0000000000000000000000000000000000000000" ]]; then
 			git -C "$repo" -c core.quotepath=false ls-tree -r --name-only -z "$head" -- >"$output"
+		elif [[ "$range_mode" == "direct" ]]; then
+			git -C "$repo" -c core.quotepath=false diff -z --name-only --diff-filter=ACMRTD "$base..$head" -- >"$output"
 		else
-			git -C "$repo" -c core.quotepath=false diff -z --name-only --diff-filter=ACMRT "$base...$head" -- >"$output"
+			git -C "$repo" -c core.quotepath=false diff -z --name-only --diff-filter=ACMRTD "$base...$head" -- >"$output"
 		fi
 		;;
 	all)
 		git -C "$repo" -c core.quotepath=false ls-files -z >"$output"
+		;;
+	esac
+}
+
+scope_path_exists() {
+	local path="$1"
+	case "$mode" in
+	staged)
+		[[ -n "$(git -C "$repo" ls-files --stage -- "$path")" ]]
+		;;
+	changed)
+		git -C "$repo" cat-file -e "$head:$path" 2>/dev/null
+		;;
+	all)
+		return 0
 		;;
 	esac
 }
@@ -178,6 +208,9 @@ while IFS= read -r -d '' path; do
 	if [[ "$path" == *$'\n'* ]]; then
 		printf 'error: path contains a newline and cannot be passed safely to quality gate tools: %q\n' "$path" >&2
 		exit 2
+	fi
+	if ! scope_path_exists "$path"; then
+		continue
 	fi
 	if matches_kind "$path"; then
 		printf '%s\0' "$path"

@@ -30,6 +30,7 @@
 
 - commit時はstagedファイルだけをcheck-onlyで検査し、hookからworktreeやindexを整形・再stageしません。
 - PR時はmerge-baseからheadまでの変更ファイルだけを検査し、未変更ファイルの既存違反をPRの失敗理由にしません。
+- push時はbeforeからheadまでの二点差分を検査し、force pushや巻き戻しで削除・復元された対象も捕捉します。
 - formatter／linter設定を変更した場合は、その設定が支配するファイル種別の全trackedファイルへ対象を拡張します。
 - 全trackedファイル検査はPR必須ゲートから分離し、定期実行、手動実行、またはrelease前backstopとして`scope: all`で呼び出します。
 - 対象抽出、AIDLC管理path除外、ファイル種別分類の正本は`scripts/quality-gate-targets.sh`です。staged、PR差分、全量の入口だけを切り替え、各toolで独自に対象を再抽出しません。

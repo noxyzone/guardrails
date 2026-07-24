@@ -56,6 +56,11 @@ jobs:
           base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
           scope_args=(--changed --base "$base_sha" --head "$head_sha")
+          range_mode=direct
+          if [[ "${{ github.event_name }}" == pull_request ]]; then
+            range_mode=merge-base
+          fi
+          scope_args+=(--range-mode "$range_mode")
           if [[ "${{ inputs.scope }}" == "all" ]]; then
             scope_args=(--all)
           elif [[ "${{ inputs.scope }}" != "changed" ]]; then
@@ -97,6 +102,11 @@ jobs:
           base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
           scope_args=(--changed --base "$base_sha" --head "$head_sha")
+          range_mode=direct
+          if [[ "${{ github.event_name }}" == pull_request ]]; then
+            range_mode=merge-base
+          fi
+          scope_args+=(--range-mode "$range_mode")
           if [[ "${{ inputs.scope }}" == "all" ]]; then
             scope_args=(--all)
           elif [[ "${{ inputs.scope }}" != "changed" ]]; then
@@ -328,6 +338,11 @@ jobs:
           base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
           scope_args=(--changed --base "$base_sha" --head "$head_sha")
+          range_mode=direct
+          if [[ "${{ github.event_name }}" == pull_request ]]; then
+            range_mode=merge-base
+          fi
+          scope_args+=(--range-mode "$range_mode")
           if [[ "${{ inputs.scope }}" == "all" ]]; then
             scope_args=(--all)
           elif [[ "${{ inputs.scope }}" != "changed" ]]; then

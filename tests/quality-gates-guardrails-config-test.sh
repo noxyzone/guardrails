@@ -12,6 +12,10 @@ for required in \
 	'default: changed' \
 	'scope_args=\(--all\)' \
 	'scope_args=\(--changed --base "\$base_sha" --head "\$head_sha"\)' \
+	'range_mode=direct' \
+	'if \[\[ "\$\{\{ github\.event_name \}\}" == pull_request \]\]; then' \
+	'range_mode=merge-base' \
+	'scope_args\+=\(--range-mode "\$range_mode"\)' \
 	'ref: \$\{\{ inputs\.guardrails-ref \}\}' \
 	'quality-gate-change-detection\.sh' \
 	'quality-gate-targets\.sh' \
