@@ -29,8 +29,8 @@ if ! rg -q 'treefmt_command\+=\(--ci\)' "$SCRIPT" ||
 	exit 1
 fi
 
-if ! rg -q "git diff --stat >&2" "$SCRIPT" || ! rg -q "git diff -- >&2" "$SCRIPT"; then
-	echo "FAIL: treefmt-check.sh must print formatter diffs when CI mode detects changes" >&2
+if ! rg -q "git diff --shortstat >&2" "$SCRIPT" || rg -q "git diff -- >&2" "$SCRIPT"; then
+	echo "FAIL: treefmt-check.sh must summarize formatter failures without printing diff contents" >&2
 	exit 1
 fi
 
@@ -62,7 +62,7 @@ printf 'invoked\n' >"${TREEFMT_INVOKED_FILE:?}"
 while (($# > 0)); do
 	if [[ "$1" == "--config-file" ]]; then
 		/bin/cp "$2" "${TREEFMT_CONFIG_CAPTURE:?}"
-		exit 0
+		exit "${TREEFMT_EXIT_STATUS:-0}"
 	fi
 	shift
 done
@@ -115,6 +115,33 @@ if [[ ! -e "$FIXTURE/treefmt-invoked" ]]; then
 	echo "FAIL: treefmt-check.sh did not invoke treefmt for the repository default" >&2
 	exit 1
 fi
+
+git -C "$FIXTURE/repo" init -q
+git -C "$FIXTURE/repo" config user.email fixture@example.invalid
+git -C "$FIXTURE/repo" config user.name Fixture
+printf 'original\n' >"$FIXTURE/repo/sensitive.txt"
+git -C "$FIXTURE/repo" add sensitive.txt
+fixture_tree="$(git -C "$FIXTURE/repo" write-tree)"
+fixture_commit="$(printf 'initial\n' | git -C "$FIXTURE/repo" commit-tree "$fixture_tree")"
+git -C "$FIXTURE/repo" update-ref HEAD "$fixture_commit"
+printf 'sensitive-fixture-value\n' >"$FIXTURE/repo/sensitive.txt"
+if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" TREEFMT_EXIT_STATUS=23 \
+	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+	--repo "$FIXTURE/repo" >"$FIXTURE/treefmt-failure.stdout" \
+	2>"$FIXTURE/treefmt-failure.stderr"; then
+	echo "FAIL: treefmt-check.sh accepted a formatter failure" >&2
+	exit 1
+fi
+if rg -Fq 'sensitive-fixture-value' "$FIXTURE/treefmt-failure.stderr"; then
+	echo "FAIL: treefmt-check.sh exposed repository diff contents" >&2
+	exit 1
+fi
+if ! rg -Fq '1 file changed' "$FIXTURE/treefmt-failure.stderr"; then
+	echo "FAIL: treefmt-check.sh omitted the safe repository diff summary" >&2
+	exit 1
+fi
+git -C "$FIXTURE/repo" checkout -q -- sensitive.txt
 if ! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/prettier.cjs\", \"--write\"]" \
 	"$FIXTURE/config-capture.toml" ||
 	! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/.swiftformat\"]" \
