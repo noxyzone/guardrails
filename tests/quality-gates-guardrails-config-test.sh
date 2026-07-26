@@ -10,12 +10,10 @@ for required in \
 	'required: true' \
 	'scope:' \
 	'default: changed' \
-	'scope_args=\(--all\)' \
-	'scope_args=\(--changed --base "\$base_sha" --head "\$head_sha"\)' \
-	'range_mode=direct' \
-	'if \[\[ "\$\{\{ github\.event_name \}\}" == pull_request \]\]; then' \
-	'range_mode=merge-base' \
-	'scope_args\+=\(--range-mode "\$range_mode"\)' \
+	'quality-gate-scope-args\.sh' \
+	'--scope "\$\{\{ inputs\.scope \}\}"' \
+	'--event-name "\$\{\{ github\.event_name \}\}"' \
+	'done <"\$scope_args_file"' \
 	'ref: \$\{\{ inputs\.guardrails-ref \}\}' \
 	'quality-gate-change-detection\.sh' \
 	'quality-gate-targets\.sh' \
@@ -80,6 +78,9 @@ for forbidden in \
 	'uses: actions/checkout@v[0-9]' \
 	'npm install' \
 	'pipx install ruff$' \
+	'range_mode=direct' \
+	'scope_args=\(--all\)' \
+	'scope_args=\(--changed' \
 	'\$PWD/node_modules/\.bin' \
 	'git ls-files -z' \
 	'text-spacing-check\.sh --all' \
@@ -113,6 +114,11 @@ fi
 
 if [[ "$(rg -c '^          fetch-depth: 0$' "$WORKFLOW")" != "3" ]]; then
 	echo "FAIL: every change-scoped job checkout must define fetch-depth: 0" >&2
+	exit 1
+fi
+
+if [[ "$(rg -c 'quality-gate-scope-args\.sh' "$WORKFLOW")" != "3" ]]; then
+	echo "FAIL: every change-scoped workflow entrance must use the shared scope resolver" >&2
 	exit 1
 fi
 

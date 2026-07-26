@@ -54,18 +54,16 @@ jobs:
 
           base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
-          scope_args=(--changed --base "$base_sha" --head "$head_sha")
-          range_mode=direct
-          if [[ "${{ github.event_name }}" == pull_request ]]; then
-            range_mode=merge-base
-          fi
-          scope_args+=(--range-mode "$range_mode")
-          if [[ "${{ inputs.scope }}" == "all" ]]; then
-            scope_args=(--all)
-          elif [[ "${{ inputs.scope }}" != "changed" ]]; then
-            echo "error: scope must be changed or all" >&2
-            exit 2
-          fi
+          scope_args_file="$RUNNER_TEMP/quality-gate-scope-args.bin"
+          .guardrails/scripts/quality-gate-scope-args.sh \
+            --scope "${{ inputs.scope }}" \
+            --event-name "${{ github.event_name }}" \
+            --base "$base_sha" \
+            --head "$head_sha" >"$scope_args_file"
+          scope_args=()
+          while IFS= read -r -d '' scope_arg; do
+            scope_args+=("$scope_arg")
+          done <"$scope_args_file"
           .guardrails/scripts/quality-gate-change-detection.sh \
             --repo "$GITHUB_WORKSPACE" \
             "${scope_args[@]}" \
@@ -100,18 +98,16 @@ jobs:
 
           base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
-          scope_args=(--changed --base "$base_sha" --head "$head_sha")
-          range_mode=direct
-          if [[ "${{ github.event_name }}" == pull_request ]]; then
-            range_mode=merge-base
-          fi
-          scope_args+=(--range-mode "$range_mode")
-          if [[ "${{ inputs.scope }}" == "all" ]]; then
-            scope_args=(--all)
-          elif [[ "${{ inputs.scope }}" != "changed" ]]; then
-            echo "error: scope must be changed or all" >&2
-            exit 2
-          fi
+          scope_args_file="$RUNNER_TEMP/quality-gate-scope-args.bin"
+          .guardrails/scripts/quality-gate-scope-args.sh \
+            --scope "${{ inputs.scope }}" \
+            --event-name "${{ github.event_name }}" \
+            --base "$base_sha" \
+            --head "$head_sha" >"$scope_args_file"
+          scope_args=()
+          while IFS= read -r -d '' scope_arg; do
+            scope_args+=("$scope_arg")
+          done <"$scope_args_file"
           target_dir="$RUNNER_TEMP/quality-gate-targets"
           mkdir -p "$target_dir"
           for kind in secretlint treefmt_non_swift text_spacing typos localization markdownlint eslint ruff shell; do
@@ -336,18 +332,16 @@ jobs:
 
           base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
-          scope_args=(--changed --base "$base_sha" --head "$head_sha")
-          range_mode=direct
-          if [[ "${{ github.event_name }}" == pull_request ]]; then
-            range_mode=merge-base
-          fi
-          scope_args+=(--range-mode "$range_mode")
-          if [[ "${{ inputs.scope }}" == "all" ]]; then
-            scope_args=(--all)
-          elif [[ "${{ inputs.scope }}" != "changed" ]]; then
-            echo "error: scope must be changed or all" >&2
-            exit 2
-          fi
+          scope_args_file="$RUNNER_TEMP/quality-gate-scope-args.bin"
+          .guardrails/scripts/quality-gate-scope-args.sh \
+            --scope "${{ inputs.scope }}" \
+            --event-name "${{ github.event_name }}" \
+            --base "$base_sha" \
+            --head "$head_sha" >"$scope_args_file"
+          scope_args=()
+          while IFS= read -r -d '' scope_arg; do
+            scope_args+=("$scope_arg")
+          done <"$scope_args_file"
           target_dir="$RUNNER_TEMP/quality-gate-targets"
           mkdir -p "$target_dir"
           for kind in ast_grep swift; do

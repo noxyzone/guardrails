@@ -34,7 +34,7 @@ if ! rg -q "git diff --stat >&2" "$SCRIPT" || ! rg -q "git diff -- >&2" "$SCRIPT
 	exit 1
 fi
 
-if ! rg -q 'mktemp "\$\{TMPDIR:-/tmp\}/treefmt-noswift\.XXXXXX\.toml"' "$SCRIPT"; then
+if ! rg -q 'mktemp "\$\{TMPDIR:-/tmp\}/treefmt-runtime\.XXXXXX\.toml"' "$SCRIPT"; then
 	echo "FAIL: treefmt-check.sh must keep generated treefmt config outside the repo tree" >&2
 	exit 1
 fi
@@ -43,7 +43,15 @@ FIXTURE="$(mktemp -d)"
 trap 'rm -rf "$FIXTURE"' EXIT
 mkdir -p "$FIXTURE/guardrails/scripts" "$FIXTURE/bin" "$FIXTURE/repo"
 ln -s "$SCRIPT" "$FIXTURE/guardrails/scripts/treefmt-check.sh"
-printf '[formatter.prettier]\n' >"$FIXTURE/guardrails/treefmt.toml"
+printf '%s\n' \
+	'[formatter.prettier]' \
+	'command = "prettier"' \
+	'options = ["--config", ".guardrails/prettier.cjs", "--write"]' \
+	'' \
+	'[formatter.swiftformat]' \
+	'command = "swiftformat"' \
+	'options = ["--config", ".guardrails/.swiftformat"]' \
+	>"$FIXTURE/guardrails/treefmt.toml"
 printf 'module.exports = {};\n' >"$FIXTURE/guardrails/prettier.cjs"
 printf '%s\n' '--swiftversion 6.0' >"$FIXTURE/guardrails/.swiftformat"
 
@@ -51,6 +59,14 @@ cat >"$FIXTURE/bin/treefmt" <<'FAKE_TREEFMT'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'invoked\n' >"${TREEFMT_INVOKED_FILE:?}"
+while (($# > 0)); do
+	if [[ "$1" == "--config-file" ]]; then
+		/bin/cp "$2" "${TREEFMT_CONFIG_CAPTURE:?}"
+		exit 0
+	fi
+	shift
+done
+exit 2
 FAKE_TREEFMT
 cat >"$FIXTURE/guardrails/scripts/quality-gate-path-filter.sh" <<'FAILING_FILTER'
 #!/usr/bin/env bash
@@ -60,6 +76,7 @@ FAILING_FILTER
 chmod +x "$FIXTURE/bin/treefmt" "$FIXTURE/guardrails/scripts/quality-gate-path-filter.sh"
 
 if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
 	"$FIXTURE/guardrails/scripts/treefmt-check.sh" --repo "$FIXTURE/repo" >/dev/null 2>&1; then
 	echo "FAIL: treefmt-check.sh accepted a failing path filter" >&2
 	exit 1
@@ -76,6 +93,7 @@ exit 0
 EMPTY_FILTER
 rm "$FIXTURE/guardrails/prettier.cjs"
 if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
 	"$FIXTURE/guardrails/scripts/treefmt-check.sh" --repo "$FIXTURE/repo" >/dev/null 2>&1; then
 	echo "FAIL: treefmt-check.sh accepted a missing required asset" >&2
 	exit 1
@@ -87,6 +105,7 @@ fi
 
 printf 'module.exports = {};\n' >"$FIXTURE/guardrails/prettier.cjs"
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
 	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
 	--repo "$FIXTURE/repo" >/dev/null 2>&1; then
 	echo "FAIL: treefmt-check.sh rejected an empty explicit path list" >&2
@@ -96,6 +115,13 @@ if [[ ! -e "$FIXTURE/treefmt-invoked" ]]; then
 	echo "FAIL: treefmt-check.sh did not invoke treefmt for the repository default" >&2
 	exit 1
 fi
+if ! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/prettier.cjs\", \"--write\"]" \
+	"$FIXTURE/config-capture.toml" ||
+	! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/.swiftformat\"]" \
+		"$FIXTURE/config-capture.toml"; then
+	echo "FAIL: treefmt-check.sh did not bind formatter settings to the selected guardrails directory" >&2
+	exit 1
+fi
 
 mkdir -p "$FIXTURE/repo/.guardrails"
 printf 'existing treefmt\n' >"$FIXTURE/repo/.guardrails/treefmt.toml"
@@ -103,6 +129,7 @@ printf 'existing prettier\n' >"$FIXTURE/repo/.guardrails/prettier.cjs"
 printf 'existing swiftformat\n' >"$FIXTURE/repo/.guardrails/.swiftformat"
 printf 'existing editorconfig\n' >"$FIXTURE/repo/.editorconfig"
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
 	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
 	--repo "$FIXTURE/repo" >/dev/null 2>&1; then
 	echo "FAIL: treefmt-check.sh rejected an existing guardrails checkout" >&2
@@ -118,35 +145,23 @@ fi
 rm -rf "$FIXTURE/repo/.guardrails"
 rm "$FIXTURE/repo/.editorconfig"
 
-cat >"$FIXTURE/bin/cp" <<'FAILING_SECOND_COPY'
-#!/usr/bin/env bash
-set -euo pipefail
-copy_count=0
-if [[ -f "${COPY_COUNT_FILE:?}" ]]; then
-	copy_count="$(<"$COPY_COUNT_FILE")"
-fi
-copy_count=$((copy_count + 1))
-printf '%s\n' "$copy_count" >"$COPY_COUNT_FILE"
-if [[ "$copy_count" == 2 ]]; then
-	exit 23
-fi
-/bin/cp "$@"
-FAILING_SECOND_COPY
-chmod +x "$FIXTURE/bin/cp"
-if PATH="$FIXTURE/bin:$PATH" COPY_COUNT_FILE="$FIXTURE/copy-count" \
-	TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+ln -s missing-guardrails "$FIXTURE/repo/.guardrails"
+if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
 	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
 	--repo "$FIXTURE/repo" >/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh accepted an incomplete guardrails copy" >&2
+	echo "FAIL: treefmt-check.sh rejected an unrelated broken repo-local guardrails symlink" >&2
 	exit 1
 fi
-if [[ -e "$FIXTURE/repo/.guardrails" ]]; then
-	echo "FAIL: treefmt-check.sh left a partial guardrails directory after copy failure" >&2
+if [[ ! -L "$FIXTURE/repo/.guardrails" ]] ||
+	[[ "$(readlink "$FIXTURE/repo/.guardrails")" != "missing-guardrails" ]]; then
+	echo "FAIL: treefmt-check.sh modified a broken repo-local guardrails symlink" >&2
 	exit 1
 fi
+rm "$FIXTURE/repo/.guardrails"
 
-if PATH="$FIXTURE/bin:$PATH" COPY_COUNT_FILE="$FIXTURE/copy-count" \
-	TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
 	/bin/bash -c '
 		printf() {
 			if [[ "$#" == 2 && "$1" == "%s\n" && "$2" == "root = true" ]]; then
@@ -163,10 +178,6 @@ if PATH="$FIXTURE/bin:$PATH" COPY_COUNT_FILE="$FIXTURE/copy-count" \
 fi
 if [[ -e "$FIXTURE/repo/.editorconfig" ]]; then
 	echo "FAIL: treefmt-check.sh left a partial editorconfig after write failure" >&2
-	exit 1
-fi
-if [[ -e "$FIXTURE/repo/.guardrails" ]]; then
-	echo "FAIL: treefmt-check.sh left guardrails assets after editorconfig failure" >&2
 	exit 1
 fi
 

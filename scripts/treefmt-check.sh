@@ -9,10 +9,9 @@ fail() {
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 guardrails_dir="$(cd "$script_dir/.." && pwd)"
 repo_root="."
-created_guardrails_dir=0
 created_editorconfig=0
 treefmt_exclusions_path=""
-treefmt_noswift_config_path=""
+treefmt_config_path=""
 treefmt_mode="check"
 treefmt_args=()
 treefmt_timeout_seconds="${TREEFMT_TIMEOUT_SECONDS:-60}"
@@ -53,11 +52,8 @@ cleanup() {
 	if [[ -n "$treefmt_exclusions_path" ]]; then
 		rm -f "$treefmt_exclusions_path"
 	fi
-	if [[ -n "$treefmt_noswift_config_path" ]]; then
-		rm -f "$treefmt_noswift_config_path"
-	fi
-	if [[ "$created_guardrails_dir" == 1 ]]; then
-		rm -rf "$repo_root/.guardrails"
+	if [[ -n "$treefmt_config_path" ]]; then
+		rm -f "$treefmt_config_path"
 	fi
 	if [[ "$created_editorconfig" == 1 ]]; then
 		rm "$repo_root/.editorconfig"
@@ -78,14 +74,6 @@ fi
 while IFS= read -r exclusion; do
 	treefmt_exclude_args+=(--excludes "$exclusion")
 done <"$treefmt_exclusions_path"
-
-if [[ ! -e "$repo_root/.guardrails" ]]; then
-	mkdir "$repo_root/.guardrails"
-	created_guardrails_dir=1
-	cp "$guardrails_dir/treefmt.toml" "$repo_root/.guardrails/treefmt.toml"
-	cp "$guardrails_dir/prettier.cjs" "$repo_root/.guardrails/prettier.cjs"
-	cp "$guardrails_dir/.swiftformat" "$repo_root/.guardrails/.swiftformat"
-fi
 
 if ! command -v treefmt >/dev/null; then
 	fail "treefmt is not installed"
@@ -145,24 +133,32 @@ if [[ ! -e "$repo_root/.editorconfig" ]]; then
 	printf '%s\n' 'root = true' >"$repo_root/.editorconfig"
 fi
 
-if [[ "$treefmt_without_swiftformat" == 1 ]]; then
-	treefmt_noswift_config_path="$(mktemp "${TMPDIR:-/tmp}/treefmt-noswift.XXXXXX.toml")"
-	awk '
-        /^\[formatter\.swiftformat\]$/ {
-            skip=1
-            next
-        }
-        skip && /^\[formatter\./ {
-            skip=0
-        }
-        !skip {
-            print
-        }
-	' "$repo_root/.guardrails/treefmt.toml" >"$treefmt_noswift_config_path"
-	treefmt_config_path="$treefmt_noswift_config_path"
-else
-	treefmt_config_path=".guardrails/treefmt.toml"
-fi
+toml_guardrails_dir="${guardrails_dir//\\/\\\\}"
+toml_guardrails_dir="${toml_guardrails_dir//\"/\\\"}"
+treefmt_config_path="$(mktemp "${TMPDIR:-/tmp}/treefmt-runtime.XXXXXX.toml")"
+awk -v guardrails_dir="$toml_guardrails_dir" -v without_swiftformat="$treefmt_without_swiftformat" '
+    /^\[formatter\.swiftformat\]$/ && without_swiftformat == 1 {
+        skip=1
+        next
+    }
+    skip && /^\[formatter\./ {
+        skip=0
+    }
+    skip {
+        next
+    }
+    $0 == "options = [\"--config\", \".guardrails/prettier.cjs\", \"--write\"]" {
+        printf "options = [\"--config\", \"%s/prettier.cjs\", \"--write\"]\n", guardrails_dir
+        next
+    }
+    $0 == "options = [\"--config\", \".guardrails/.swiftformat\"]" {
+        printf "options = [\"--config\", \"%s/.swiftformat\"]\n", guardrails_dir
+        next
+    }
+    {
+        print
+    }
+' "$guardrails_dir/treefmt.toml" >"$treefmt_config_path"
 
 cd "$repo_root"
 treefmt_command=(treefmt)
