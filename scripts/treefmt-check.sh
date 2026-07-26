@@ -141,8 +141,8 @@ run_with_timeout() {
 }
 
 if [[ ! -e "$repo_root/.editorconfig" ]]; then
-	printf '%s\n' 'root = true' >"$repo_root/.editorconfig"
 	created_editorconfig=1
+	printf '%s\n' 'root = true' >"$repo_root/.editorconfig"
 fi
 
 if [[ "$treefmt_without_swiftformat" == 1 ]]; then

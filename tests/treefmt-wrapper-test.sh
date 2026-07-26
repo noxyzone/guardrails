@@ -145,4 +145,29 @@ if [[ -e "$FIXTURE/repo/.guardrails" ]]; then
 	exit 1
 fi
 
+if PATH="$FIXTURE/bin:$PATH" COPY_COUNT_FILE="$FIXTURE/copy-count" \
+	TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	/bin/bash -c '
+		printf() {
+			if [[ "$#" == 2 && "$1" == "%s\n" && "$2" == "root = true" ]]; then
+				builtin printf "$@"
+				return 23
+			fi
+			builtin printf "$@"
+		}
+		source "$1" --repo "$2"
+	' _ "$FIXTURE/guardrails/scripts/treefmt-check.sh" "$FIXTURE/repo" \
+	>/dev/null 2>&1; then
+	echo "FAIL: treefmt-check.sh accepted an incomplete editorconfig write" >&2
+	exit 1
+fi
+if [[ -e "$FIXTURE/repo/.editorconfig" ]]; then
+	echo "FAIL: treefmt-check.sh left a partial editorconfig after write failure" >&2
+	exit 1
+fi
+if [[ -e "$FIXTURE/repo/.guardrails" ]]; then
+	echo "FAIL: treefmt-check.sh left guardrails assets after editorconfig failure" >&2
+	exit 1
+fi
+
 echo "PASS"
