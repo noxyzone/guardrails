@@ -59,6 +59,9 @@ cat >"$FIXTURE/bin/treefmt" <<'FAKE_TREEFMT'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'invoked\n' >"${TREEFMT_INVOKED_FILE:?}"
+if [[ -n "${TREEFMT_ARGS_CAPTURE:-}" ]]; then
+	printf '%s\n' "$@" >"$TREEFMT_ARGS_CAPTURE"
+fi
 while (($# > 0)); do
 	if [[ "$1" == "--config-file" ]]; then
 		/bin/cp "$2" "${TREEFMT_CONFIG_CAPTURE:?}"
@@ -113,6 +116,25 @@ if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
 fi
 if [[ ! -e "$FIXTURE/treefmt-invoked" ]]; then
 	echo "FAIL: treefmt-check.sh did not invoke treefmt for the repository default" >&2
+	exit 1
+fi
+
+: >"$FIXTURE/treefmt-args"
+if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
+	TREEFMT_ARGS_CAPTURE="$FIXTURE/treefmt-args" \
+	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+	--repo "$FIXTURE/repo" -- --write --check --repo reserved-path \
+	>/dev/null 2>&1; then
+	echo "FAIL: treefmt-check.sh rejected reserved-word paths after --" >&2
+	exit 1
+fi
+if ! rg -Fxq -- '--ci' "$FIXTURE/treefmt-args" ||
+	! rg -Fxq -- '--write' "$FIXTURE/treefmt-args" ||
+	! rg -Fxq -- '--check' "$FIXTURE/treefmt-args" ||
+	! rg -Fxq -- '--repo' "$FIXTURE/treefmt-args" ||
+	! rg -Fxq -- 'reserved-path' "$FIXTURE/treefmt-args"; then
+	echo "FAIL: treefmt-check.sh reinterpreted reserved-word paths after --" >&2
 	exit 1
 fi
 

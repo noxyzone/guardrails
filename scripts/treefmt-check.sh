@@ -35,6 +35,11 @@ while [[ "$#" -gt 0 ]]; do
 		repo_root="$2"
 		shift
 		;;
+	--)
+		shift
+		treefmt_args+=("$@")
+		break
+		;;
 	*)
 		treefmt_args+=("$1")
 		;;
