@@ -128,6 +128,9 @@ run_with_timeout() {
 	return "$status"
 }
 
+if [[ -L "$repo_root/.editorconfig" && ! -e "$repo_root/.editorconfig" ]]; then
+	fail "repository .editorconfig must not be a dangling symlink"
+fi
 if [[ ! -e "$repo_root/.editorconfig" ]]; then
 	created_editorconfig=1
 	printf '%s\n' 'root = true' >"$repo_root/.editorconfig"

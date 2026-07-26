@@ -187,6 +187,21 @@ if [[ ! -L "$FIXTURE/repo/.guardrails" ]] ||
 fi
 rm "$FIXTURE/repo/.guardrails"
 
+ln -s ../outside-editorconfig "$FIXTURE/repo/.editorconfig"
+if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
+	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+	--repo "$FIXTURE/repo" >/dev/null 2>&1; then
+	echo "FAIL: treefmt-check.sh accepted a dangling repository editorconfig symlink" >&2
+	exit 1
+fi
+if [[ ! -L "$FIXTURE/repo/.editorconfig" ]] ||
+	[[ -e "$FIXTURE/outside-editorconfig" ]]; then
+	echo "FAIL: treefmt-check.sh wrote through a dangling repository editorconfig symlink" >&2
+	exit 1
+fi
+rm "$FIXTURE/repo/.editorconfig"
+
 if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
 	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
 	/bin/bash -c '
