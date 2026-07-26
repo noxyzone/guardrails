@@ -101,6 +101,11 @@ if rg -q 'tar xzf treefmt\.tar\.gz' "$WORKFLOW"; then
 	exit 1
 fi
 
+if rg -q '^      any: \$\{\{ steps\.changed\.outputs\.any \}\}$' "$WORKFLOW"; then
+	echo "FAIL: QualityGates must not publish the unused any job output" >&2
+	exit 1
+fi
+
 if rg -q 'git diff --name-only --diff-filter=ACMRT .* \|\| true' "$WORKFLOW"; then
 	echo "FAIL: QualityGates must not swallow git diff failures in change detection" >&2
 	exit 1

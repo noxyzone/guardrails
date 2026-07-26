@@ -65,7 +65,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for required_asset in treefmt.toml prettier.cjs; do
+for required_asset in treefmt.toml prettier.cjs .swiftformat; do
 	if [[ ! -f "$guardrails_dir/$required_asset" ]]; then
 		fail "required guardrails asset not found: $guardrails_dir/$required_asset"
 	fi
@@ -81,9 +81,10 @@ done <"$treefmt_exclusions_path"
 
 if [[ ! -e "$repo_root/.guardrails" ]]; then
 	mkdir "$repo_root/.guardrails"
+	created_guardrails_dir=1
 	cp "$guardrails_dir/treefmt.toml" "$repo_root/.guardrails/treefmt.toml"
 	cp "$guardrails_dir/prettier.cjs" "$repo_root/.guardrails/prettier.cjs"
-	created_guardrails_dir=1
+	cp "$guardrails_dir/.swiftformat" "$repo_root/.guardrails/.swiftformat"
 fi
 
 if ! command -v treefmt >/dev/null; then
@@ -143,22 +144,6 @@ if [[ ! -e "$repo_root/.editorconfig" ]]; then
 	printf '%s\n' 'root = true' >"$repo_root/.editorconfig"
 	created_editorconfig=1
 fi
-
-{
-	printf '%s\n' '--swiftversion 6.0'
-	printf '%s\n' '--exclude DerivedData,.build,build'
-	printf '%s\n' '--indent 4'
-	printf '%s\n' '--maxwidth none'
-	printf '%s\n' '--wraparguments before-first'
-	printf '%s\n' '--wrapcollections before-first'
-	printf '%s\n' '--wrapparameters before-first'
-	printf '%s\n' '--commas inline'
-	printf '%s\n' '--trimwhitespace always'
-	printf '%s\n' '--header ignore'
-	printf '%s\n' '--disable redundantSelf'
-	printf '%s\n' '--disable unusedArguments'
-	printf '%s\n' '--disable wrapMultilineStatementBraces'
-} >"$repo_root/.guardrails/.swiftformat"
 
 if [[ "$treefmt_without_swiftformat" == 1 ]]; then
 	treefmt_noswift_config_path="$(mktemp "${TMPDIR:-/tmp}/treefmt-noswift.XXXXXX.toml")"

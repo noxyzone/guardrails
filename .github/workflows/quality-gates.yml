@@ -20,7 +20,6 @@ jobs:
     permissions:
       contents: read
     outputs:
-      any: ${{ steps.changed.outputs.any }}
       ast_grep: ${{ steps.changed.outputs.ast_grep }}
       eslint: ${{ steps.changed.outputs.eslint }}
       localization: ${{ steps.changed.outputs.localization }}

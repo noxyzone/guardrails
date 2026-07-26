@@ -30,6 +30,7 @@ head_sha="$(printf 'special names\n' | git -C "$FIXTURE" commit-tree "$head_tree
 output="$FIXTURE/outputs.txt"
 "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
 	--repo "$FIXTURE" \
+	--changed \
 	--base "$base_sha" \
 	--head "$head_sha" \
 	--range-mode direct \
@@ -86,6 +87,15 @@ if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
 	--range-mode invalid \
 	--output "$FIXTURE/invalid-range-mode.txt" 2>/dev/null; then
 	printf 'FAIL: invalid range mode was accepted\n' >&2
+	exit 1
+fi
+
+if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
+	--repo "$FIXTURE" \
+	--all \
+	--changed \
+	--output "$FIXTURE/all-with-changed.txt" 2>/dev/null; then
+	printf 'FAIL: all scope accepted changed mode\n' >&2
 	exit 1
 fi
 

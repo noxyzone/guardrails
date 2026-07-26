@@ -6,6 +6,7 @@ base=""
 head=""
 output=""
 all=0
+changed=0
 range_mode="merge-base"
 range_mode_selected=0
 
@@ -32,6 +33,10 @@ while (($# > 0)); do
 		range_mode_selected=1
 		shift 2
 		;;
+	--changed)
+		changed=1
+		shift
+		;;
 	--all)
 		all=1
 		shift
@@ -57,6 +62,10 @@ if [[ "$all" == 0 && (-z "$base" || -z "$head") ]]; then
 fi
 if [[ "$all" == 1 && (-n "$base" || -n "$head") ]]; then
 	printf 'error: --all cannot be combined with --base or --head\n' >&2
+	exit 2
+fi
+if [[ "$all" == 1 && "$changed" == 1 ]]; then
+	printf 'error: --all cannot be combined with --changed\n' >&2
 	exit 2
 fi
 if [[ "$range_mode" != merge-base && "$range_mode" != direct ]]; then
