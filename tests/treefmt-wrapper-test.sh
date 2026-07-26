@@ -45,6 +45,7 @@ mkdir -p "$FIXTURE/guardrails/scripts" "$FIXTURE/bin" "$FIXTURE/repo"
 ln -s "$SCRIPT" "$FIXTURE/guardrails/scripts/treefmt-check.sh"
 printf '[formatter.prettier]\n' >"$FIXTURE/guardrails/treefmt.toml"
 printf 'module.exports = {};\n' >"$FIXTURE/guardrails/prettier.cjs"
+printf '%s\n' '--swiftversion 6.0' >"$FIXTURE/guardrails/.swiftformat"
 
 cat >"$FIXTURE/bin/treefmt" <<'FAKE_TREEFMT'
 #!/usr/bin/env bash
@@ -93,6 +94,54 @@ if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
 fi
 if [[ ! -e "$FIXTURE/treefmt-invoked" ]]; then
 	echo "FAIL: treefmt-check.sh did not invoke treefmt for the repository default" >&2
+	exit 1
+fi
+
+mkdir -p "$FIXTURE/repo/.guardrails"
+printf 'existing treefmt\n' >"$FIXTURE/repo/.guardrails/treefmt.toml"
+printf 'existing prettier\n' >"$FIXTURE/repo/.guardrails/prettier.cjs"
+printf 'existing swiftformat\n' >"$FIXTURE/repo/.guardrails/.swiftformat"
+printf 'existing editorconfig\n' >"$FIXTURE/repo/.editorconfig"
+if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+	--repo "$FIXTURE/repo" >/dev/null 2>&1; then
+	echo "FAIL: treefmt-check.sh rejected an existing guardrails checkout" >&2
+	exit 1
+fi
+if [[ "$(<"$FIXTURE/repo/.guardrails/treefmt.toml")" != "existing treefmt" ]] ||
+	[[ "$(<"$FIXTURE/repo/.guardrails/prettier.cjs")" != "existing prettier" ]] ||
+	[[ "$(<"$FIXTURE/repo/.guardrails/.swiftformat")" != "existing swiftformat" ]] ||
+	[[ "$(<"$FIXTURE/repo/.editorconfig")" != "existing editorconfig" ]]; then
+	echo "FAIL: treefmt-check.sh modified an existing repository configuration" >&2
+	exit 1
+fi
+rm -rf "$FIXTURE/repo/.guardrails"
+rm "$FIXTURE/repo/.editorconfig"
+
+cat >"$FIXTURE/bin/cp" <<'FAILING_SECOND_COPY'
+#!/usr/bin/env bash
+set -euo pipefail
+copy_count=0
+if [[ -f "${COPY_COUNT_FILE:?}" ]]; then
+	copy_count="$(<"$COPY_COUNT_FILE")"
+fi
+copy_count=$((copy_count + 1))
+printf '%s\n' "$copy_count" >"$COPY_COUNT_FILE"
+if [[ "$copy_count" == 2 ]]; then
+	exit 23
+fi
+/bin/cp "$@"
+FAILING_SECOND_COPY
+chmod +x "$FIXTURE/bin/cp"
+if PATH="$FIXTURE/bin:$PATH" COPY_COUNT_FILE="$FIXTURE/copy-count" \
+	TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+	--repo "$FIXTURE/repo" >/dev/null 2>&1; then
+	echo "FAIL: treefmt-check.sh accepted an incomplete guardrails copy" >&2
+	exit 1
+fi
+if [[ -e "$FIXTURE/repo/.guardrails" ]]; then
+	echo "FAIL: treefmt-check.sh left a partial guardrails directory after copy failure" >&2
 	exit 1
 fi
 
