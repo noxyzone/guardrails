@@ -11,6 +11,7 @@ guardrails_dir="$(cd "$script_dir/.." && pwd)"
 repo_root="."
 created_guardrails_dir=0
 created_editorconfig=0
+treefmt_exclusions_path=""
 treefmt_noswift_config_path=""
 treefmt_mode="check"
 treefmt_args=()
@@ -48,22 +49,10 @@ fi
 
 repo_root="$(cd "$repo_root" && pwd)"
 
-while IFS= read -r exclusion; do
-	treefmt_exclude_args+=(--excludes "$exclusion")
-done < <("$script_dir/quality-gate-path-filter.sh" --treefmt-excludes)
-
-if [[ ! -f "$guardrails_dir/treefmt.toml" ]]; then
-	fail "treefmt config not found: $guardrails_dir/treefmt.toml"
-fi
-
-if [[ ! -e "$repo_root/.guardrails" ]]; then
-	mkdir "$repo_root/.guardrails"
-	cp "$guardrails_dir/treefmt.toml" "$repo_root/.guardrails/treefmt.toml"
-	cp "$guardrails_dir/prettier.cjs" "$repo_root/.guardrails/prettier.cjs"
-	created_guardrails_dir=1
-fi
-
 cleanup() {
+	if [[ -n "$treefmt_exclusions_path" ]]; then
+		rm -f "$treefmt_exclusions_path"
+	fi
 	if [[ -n "$treefmt_noswift_config_path" ]]; then
 		rm -f "$treefmt_noswift_config_path"
 	fi
@@ -75,6 +64,27 @@ cleanup() {
 	fi
 }
 trap cleanup EXIT
+
+for required_asset in treefmt.toml prettier.cjs; do
+	if [[ ! -f "$guardrails_dir/$required_asset" ]]; then
+		fail "required guardrails asset not found: $guardrails_dir/$required_asset"
+	fi
+done
+
+treefmt_exclusions_path="$(mktemp "${TMPDIR:-/tmp}/treefmt-excludes.XXXXXX")"
+if ! "$script_dir/quality-gate-path-filter.sh" --treefmt-excludes >"$treefmt_exclusions_path"; then
+	fail "quality gate path filter failed"
+fi
+while IFS= read -r exclusion; do
+	treefmt_exclude_args+=(--excludes "$exclusion")
+done <"$treefmt_exclusions_path"
+
+if [[ ! -e "$repo_root/.guardrails" ]]; then
+	mkdir "$repo_root/.guardrails"
+	cp "$guardrails_dir/treefmt.toml" "$repo_root/.guardrails/treefmt.toml"
+	cp "$guardrails_dir/prettier.cjs" "$repo_root/.guardrails/prettier.cjs"
+	created_guardrails_dir=1
+fi
 
 if ! command -v treefmt >/dev/null; then
 	fail "treefmt is not installed"
@@ -170,10 +180,28 @@ else
 fi
 
 cd "$repo_root"
+treefmt_command=(treefmt)
+if [[ "$treefmt_mode" == "check" ]]; then
+	treefmt_command+=(--ci)
+fi
+treefmt_command+=(
+	--tree-root "$repo_root"
+	--walk "$treefmt_walk"
+	--excludes 'node_modules/**'
+	--excludes '.guardrails/**'
+)
+if [[ "${#treefmt_exclude_args[@]}" -gt 0 ]]; then
+	treefmt_command+=("${treefmt_exclude_args[@]}")
+fi
+treefmt_command+=(--config-file "$treefmt_config_path")
+if [[ "${#treefmt_args[@]}" -gt 0 ]]; then
+	treefmt_command+=("${treefmt_args[@]}")
+fi
+
 if [[ "$treefmt_mode" == "write" ]]; then
-	run_with_timeout "$treefmt_timeout_seconds" treefmt --tree-root "$repo_root" --walk "$treefmt_walk" --excludes 'node_modules/**' --excludes '.guardrails/**' "${treefmt_exclude_args[@]}" --config-file "$treefmt_config_path" "${treefmt_args[@]}"
+	run_with_timeout "$treefmt_timeout_seconds" "${treefmt_command[@]}"
 else
-	if ! run_with_timeout "$treefmt_timeout_seconds" treefmt --ci --tree-root "$repo_root" --walk "$treefmt_walk" --excludes 'node_modules/**' --excludes '.guardrails/**' "${treefmt_exclude_args[@]}" --config-file "$treefmt_config_path" "${treefmt_args[@]}"; then
+	if ! run_with_timeout "$treefmt_timeout_seconds" "${treefmt_command[@]}"; then
 		if command -v git >/dev/null && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 			printf '%s\n' '[treefmt] unexpected formatter changes:' >&2
 			git diff --stat >&2 || true
