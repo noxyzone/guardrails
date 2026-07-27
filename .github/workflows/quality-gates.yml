@@ -357,7 +357,7 @@ jobs:
 
       - name: Install Swift tools
         env:
-          HOMEBREW_CORE_REVISION: d9fca872b542d66e0143ad467fa1e9ed6618d423
+          HOMEBREW_CORE_REVISION: d76b000f42f9879a3979d7facaa07ee0e1ce6ef5
           HOMEBREW_NO_AUTO_UPDATE: "1"
           HOMEBREW_NO_INSTALL_FROM_API: "1"
         run: |
@@ -366,7 +366,24 @@ jobs:
           brew tap homebrew/core
           git -C "$(brew --repo homebrew/core)" fetch --depth=1 origin "$HOMEBREW_CORE_REVISION"
           git -C "$(brew --repo homebrew/core)" checkout --detach "$HOMEBREW_CORE_REVISION"
-          brew install ast-grep swiftformat swiftlint
+          brew install ast-grep
+          for formula in swiftformat swiftlint; do
+            if brew list --formula "$formula" >/dev/null 2>&1; then
+              brew reinstall "$formula"
+            else
+              brew install "$formula"
+            fi
+          done
+          swiftformat_version="$(swiftformat --version)"
+          swiftlint_version="$(swiftlint version)"
+          if [[ "$swiftformat_version" != "0.61.1" ]]; then
+            echo "::error::SwiftFormat version mismatch: expected 0.61.1, got $swiftformat_version"
+            exit 1
+          fi
+          if [[ "$swiftlint_version" != "0.63.2" ]]; then
+            echo "::error::SwiftLint version mismatch: expected 0.63.2, got $swiftlint_version"
+            exit 1
+          fi
 
       - name: Run ast-grep
         if: ${{ needs.detect_changes.outputs.ast_grep == 'true' }}

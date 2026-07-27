@@ -29,8 +29,14 @@ for required in \
 	'pipx install ruff==0\.15\.22' \
 	'printf '\''%s\\n'\'' "\$PIPX_BIN_DIR" >> "\$GITHUB_PATH"' \
 	'export PATH="\$GITHUB_WORKSPACE/\.guardrails/\.github/quality-gates/node_modules/\.bin:\$RUNNER_TEMP/pipx-bin:/usr/local/bin:/usr/bin:/bin"' \
-	'brew install ast-grep swiftformat swiftlint' \
-	'HOMEBREW_CORE_REVISION: d9fca872b542d66e0143ad467fa1e9ed6618d423' \
+	'brew install ast-grep' \
+	'for formula in swiftformat swiftlint; do' \
+	'if brew list --formula "\$formula" >/dev/null 2>&1; then' \
+	'brew reinstall "\$formula"' \
+	'brew install "\$formula"' \
+	'HOMEBREW_CORE_REVISION: d76b000f42f9879a3979d7facaa07ee0e1ce6ef5' \
+	'SwiftFormat version mismatch: expected 0\.61\.1' \
+	'SwiftLint version mismatch: expected 0\.63\.2' \
 	'GH_TOKEN: \$\{\{ github\.token \}\}' \
 	'treefmt_tmp="\$\(mktemp -d\)"' \
 	'gh release download v2\.3\.0 --repo numtide/treefmt --pattern treefmt_2\.3\.0_linux_amd64\.tar\.gz --output "\$treefmt_tmp/treefmt\.tar\.gz"' \
