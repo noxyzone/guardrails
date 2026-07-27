@@ -134,10 +134,14 @@ jobs:
 
       - name: Install Ruff
         if: ${{ needs.detect_changes.outputs.ruff == 'true' || needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
+        env:
+          PIPX_BIN_DIR: ${{ runner.temp }}/pipx-bin
         run: |
           set -euo pipefail
 
+          mkdir -p "$PIPX_BIN_DIR"
           pipx install ruff==0.15.22
+          printf '%s\n' "$PIPX_BIN_DIR" >> "$GITHUB_PATH"
 
       - name: Install Treefmt tools
         if: ${{ needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
@@ -187,7 +191,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          export PATH="$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
+          export PATH="$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin:$RUNNER_TEMP/pipx-bin:/usr/local/bin:/usr/bin:/bin"
           targets="$RUNNER_TEMP/quality-gate-targets/treefmt_non_swift.bin"
           if [[ -s "$targets" ]]; then
             xargs -0 .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE" -- <"$targets"
@@ -398,7 +402,7 @@ jobs:
 
           targets="$RUNNER_TEMP/quality-gate-targets/swift.bin"
           if [[ -s "$targets" ]]; then
-            xargs -0 swiftformat --lint --config .guardrails/.swiftformat -- <"$targets"
+            xargs -0 swiftformat --lint --config .guardrails/.swiftformat <"$targets"
           fi
 
   quality_gates:

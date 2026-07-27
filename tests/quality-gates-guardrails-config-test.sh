@@ -23,7 +23,11 @@ for required in \
 	'ast_grep: \$\{\{ steps\.changed\.outputs\.ast_grep \}\}' \
 	'uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955' \
 	'npm ci --prefix \.guardrails/\.github/quality-gates --ignore-scripts' \
+	'PIPX_BIN_DIR: \$\{\{ runner\.temp \}\}/pipx-bin' \
+	'mkdir -p "\$PIPX_BIN_DIR"' \
 	'pipx install ruff==0\.15\.22' \
+	'printf '\''%s\\n'\'' "\$PIPX_BIN_DIR" >> "\$GITHUB_PATH"' \
+	'export PATH="\$GITHUB_WORKSPACE/\.guardrails/\.github/quality-gates/node_modules/\.bin:\$RUNNER_TEMP/pipx-bin:/usr/local/bin:/usr/bin:/bin"' \
 	'brew install ast-grep swiftformat swiftlint' \
 	'HOMEBREW_CORE_REVISION: d9fca872b542d66e0143ad467fa1e9ed6618d423' \
 	'GH_TOKEN: \$\{\{ github\.token \}\}' \
@@ -66,9 +70,9 @@ for required in \
 	'xargs -0 -r shellcheck --' \
 	'xargs -0 ast-grep scan --config .guardrails/sgconfig.yml --report-style short --' \
 	'xargs -0 swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml --' \
-	'xargs -0 swiftformat --lint --config .guardrails/.swiftformat --'; do
+	'xargs -0 swiftformat --lint --config .guardrails/.swiftformat'; do
 	if ! rg -Fq "$required" "$WORKFLOW"; then
-		echo "FAIL: QualityGates must NUL-delimit file arguments and terminate tool options: $required" >&2
+		echo "FAIL: QualityGates must NUL-delimit file arguments using supported tool options: $required" >&2
 		exit 1
 	fi
 done
@@ -91,6 +95,16 @@ for forbidden in \
 		exit 1
 	fi
 done
+
+if rg -Fq '$HOME/.local/bin' "$WORKFLOW"; then
+	echo "FAIL: QualityGates must not assume pipx installs applications under HOME/.local/bin" >&2
+	exit 1
+fi
+
+if rg -Fq 'xargs -0 swiftformat --lint --config .guardrails/.swiftformat --' "$WORKFLOW"; then
+	echo "FAIL: QualityGates must not pass the unsupported -- option to SwiftFormat" >&2
+	exit 1
+fi
 
 if [[ "$(rg -c 'sha256sum --check --strict' "$WORKFLOW")" != "4" ]]; then
 	echo "FAIL: every downloaded release asset must have an exact SHA-256 check" >&2
