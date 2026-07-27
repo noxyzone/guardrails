@@ -29,12 +29,14 @@ for required in \
 	'pipx install ruff==0\.15\.22' \
 	'printf '\''%s\\n'\'' "\$PIPX_BIN_DIR" >> "\$GITHUB_PATH"' \
 	'export PATH="\$GITHUB_WORKSPACE/\.guardrails/\.github/quality-gates/node_modules/\.bin:\$RUNNER_TEMP/pipx-bin:/usr/local/bin:/usr/bin:/bin"' \
-	'brew install ast-grep' \
-	'for formula in swiftformat swiftlint; do' \
-	'if brew list --formula "\$formula" >/dev/null 2>&1; then' \
-	'brew reinstall "\$formula"' \
-	'brew install "\$formula"' \
-	'HOMEBREW_CORE_REVISION: d76b000f42f9879a3979d7facaa07ee0e1ce6ef5' \
+	'app-aarch64-apple-darwin\.zip' \
+	'swiftformat\.zip' \
+	'portable_swiftlint\.zip' \
+	'0a2fef273b0ff1238b8307add911714f92021d25b919fa3ec9b6b2e046bb29cf' \
+	'b990400779aceb7d7020796eb9ba814d4480543f671d38fc0ff48cb72f04c584' \
+	'c59a405c85f95b92ced677a500804e081596a4cae4a6a485af76065557d6ed29' \
+	'printf '\''%s\\n'\'' "\$SWIFT_TOOLS_BIN" >> "\$GITHUB_PATH"' \
+	'ast-grep version mismatch: expected 0\.44\.1' \
 	'SwiftFormat version mismatch: expected 0\.61\.1' \
 	'SwiftLint version mismatch: expected 0\.63\.2' \
 	'GH_TOKEN: \$\{\{ github\.token \}\}' \
@@ -99,6 +101,8 @@ for forbidden in \
 	'uses: actions/checkout@v[0-9]' \
 	'npm install' \
 	'pipx install ruff$' \
+	'HOMEBREW_CORE_REVISION' \
+	'brew install ast-grep' \
 	'range_mode=direct' \
 	'scope_args=\(--all\)' \
 	'scope_args=\(--changed' \
