@@ -169,14 +169,21 @@ matches_kind() {
 		if [[ "$path" == *.sh ]]; then
 			return 0
 		fi
-		if [[ "$mode" == "changed" ]]; then
-			object="$head:$path"
+		if [[ "$mode" == "all" ]]; then
+			first_line=""
+			if ! IFS= read -r first_line <"$repo/$path"; then
+				[[ -n "$first_line" ]] || return 1
+			fi
 		else
-			object=":$path"
-		fi
-		first_line=""
-		if ! IFS= read -r first_line < <(git -C "$repo" show "$object" 2>/dev/null); then
-			[[ -n "$first_line" ]] || return 1
+			if [[ "$mode" == "changed" ]]; then
+				object="$head:$path"
+			else
+				object=":$path"
+			fi
+			first_line=""
+			if ! IFS= read -r first_line < <(git -C "$repo" show "$object" 2>/dev/null); then
+				[[ -n "$first_line" ]] || return 1
+			fi
 		fi
 		[[ "$first_line" =~ ^#!.*(bash|sh|zsh|ksh|dash)([[:space:]]|$) ]]
 		;;

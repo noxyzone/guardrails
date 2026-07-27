@@ -108,4 +108,20 @@ if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
 	exit 1
 fi
 
+for option in --repo --base --head --output --range-mode; do
+	missing_value_error="$FIXTURE/missing-value-${option#--}.txt"
+	set +e
+	"$ROOT_DIR/scripts/quality-gate-change-detection.sh" "$option" 2>"$missing_value_error"
+	status=$?
+	set -e
+	if [[ "$status" -ne 2 ]]; then
+		printf 'FAIL: missing value for %s exited with %s instead of 2\n' "$option" "$status" >&2
+		exit 1
+	fi
+	if ! grep -Fq 'usage: quality-gate-change-detection.sh' "$missing_value_error"; then
+		printf 'FAIL: missing value for %s did not show usage\n' "$option" >&2
+		exit 1
+	fi
+done
+
 printf 'PASS\n'

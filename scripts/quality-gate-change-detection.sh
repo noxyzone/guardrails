@@ -10,25 +10,37 @@ changed=0
 range_mode="merge-base"
 range_mode_selected=0
 
+usage() {
+	cat <<'USAGE' >&2
+usage: quality-gate-change-detection.sh --repo PATH (--changed --base SHA --head SHA [--range-mode merge-base|direct] | --all) --output PATH
+USAGE
+	exit 2
+}
+
 while (($# > 0)); do
 	case "$1" in
 	--repo)
+		(($# >= 2)) || usage
 		repo="$2"
 		shift 2
 		;;
 	--base)
+		(($# >= 2)) || usage
 		base="$2"
 		shift 2
 		;;
 	--head)
+		(($# >= 2)) || usage
 		head="$2"
 		shift 2
 		;;
 	--output)
+		(($# >= 2)) || usage
 		output="$2"
 		shift 2
 		;;
 	--range-mode)
+		(($# >= 2)) || usage
 		range_mode="$2"
 		range_mode_selected=1
 		shift 2

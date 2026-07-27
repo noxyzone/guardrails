@@ -75,6 +75,13 @@ shell_output="$FIXTURE/shell.bin"
 "$TARGETS" --repo "$repo" --staged --kind shell >"$shell_output"
 assert_null_paths "$shell_output" "tool"
 
+printf 'not a shell script\n' >"$repo/all-mode-tool"
+git -C "$repo" add -- all-mode-tool
+printf '#!/usr/bin/env bash\nexit 0\n' >"$repo/all-mode-tool"
+all_shell_output="$FIXTURE/all-shell.bin"
+"$TARGETS" --repo "$repo" --all --kind shell >"$all_shell_output"
+assert_null_paths "$all_shell_output" "all-mode-tool" "tool"
+
 git -C "$repo" add -- Sources/Changed.swift Sources/Unchanged.swift
 swift_base_tree="$(git -C "$repo" write-tree)"
 swift_base_commit="$(printf 'swift base\n' | git -C "$repo" commit-tree "$swift_base_tree")"

@@ -43,6 +43,7 @@ fi
 treefmt_excludes="$("$FILTER" --treefmt-excludes)"
 for required_exclude in \
 	'.codex/agents/aidlc-*' \
+	'.codex/knowledge/aidlc-*' \
 	'.codex/scopes/aidlc-*' \
 	'.codex/sensors/aidlc-*'; do
 	if ! printf '%s\n' "$treefmt_excludes" | rg -Fxq -- "$required_exclude"; then

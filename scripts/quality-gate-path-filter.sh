@@ -47,6 +47,7 @@ if (($# == 1)); then
 		'.codex/hooks/aidlc-*/**' \
 		'.codex/hooks/aidlc-*' \
 		'.codex/knowledge/aidlc-*/**' \
+		'.codex/knowledge/aidlc-*' \
 		'.codex/scopes/aidlc-*/**' \
 		'.codex/scopes/aidlc-*' \
 		'.codex/sensors/aidlc-*/**' \
