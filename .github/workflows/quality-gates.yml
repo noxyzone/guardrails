@@ -49,6 +49,8 @@ jobs:
 
       - name: Detect changed files
         id: changed
+        env:
+          SCOPE_INPUT: ${{ inputs.scope }}
         run: |
           set -euo pipefail
 
@@ -56,7 +58,7 @@ jobs:
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
           scope_args_file="$RUNNER_TEMP/quality-gate-scope-args.bin"
           .guardrails/scripts/quality-gate-scope-args.sh \
-            --scope "${{ inputs.scope }}" \
+            --scope "$SCOPE_INPUT" \
             --event-name "${{ github.event_name }}" \
             --base "$base_sha" \
             --head "$head_sha" >"$scope_args_file"
@@ -93,6 +95,8 @@ jobs:
           persist-credentials: false
 
       - name: Prepare changed-file targets
+        env:
+          SCOPE_INPUT: ${{ inputs.scope }}
         run: |
           set -euo pipefail
 
@@ -100,7 +104,7 @@ jobs:
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
           scope_args_file="$RUNNER_TEMP/quality-gate-scope-args.bin"
           .guardrails/scripts/quality-gate-scope-args.sh \
-            --scope "${{ inputs.scope }}" \
+            --scope "$SCOPE_INPUT" \
             --event-name "${{ github.event_name }}" \
             --base "$base_sha" \
             --head "$head_sha" >"$scope_args_file"
@@ -331,6 +335,8 @@ jobs:
           persist-credentials: false
 
       - name: Prepare changed-file targets
+        env:
+          SCOPE_INPUT: ${{ inputs.scope }}
         run: |
           set -euo pipefail
 
@@ -338,7 +344,7 @@ jobs:
           head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
           scope_args_file="$RUNNER_TEMP/quality-gate-scope-args.bin"
           .guardrails/scripts/quality-gate-scope-args.sh \
-            --scope "${{ inputs.scope }}" \
+            --scope "$SCOPE_INPUT" \
             --event-name "${{ github.event_name }}" \
             --base "$base_sha" \
             --head "$head_sha" >"$scope_args_file"
@@ -428,7 +434,9 @@ jobs:
 
           targets="$RUNNER_TEMP/quality-gate-targets/swift.bin"
           if [[ -s "$targets" ]]; then
-            xargs -0 swiftformat --lint --config .guardrails/.swiftformat <"$targets"
+            while IFS= read -r -d '' path; do
+              printf './%s\0' "$path"
+            done <"$targets" | xargs -0 swiftformat --lint --config .guardrails/.swiftformat
           fi
 
   quality_gates:

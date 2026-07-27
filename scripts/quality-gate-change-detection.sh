@@ -68,6 +68,10 @@ done
 	printf 'error: --output is required\n' >&2
 	exit 2
 }
+if [[ "$all" == 0 && "$changed" == 0 ]]; then
+	printf 'error: either --changed or --all is required\n' >&2
+	exit 2
+fi
 if [[ "$all" == 0 && (-z "$base" || -z "$head") ]]; then
 	printf 'error: --base and --head are required unless --all is used\n' >&2
 	exit 2

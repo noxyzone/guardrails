@@ -41,6 +41,21 @@ if "$SCRIPT" --scope invalid --event-name push --base base-sha --head head-sha >
 	echo "FAIL: invalid scope was accepted" >&2
 	exit 1
 fi
+side_effect_dir="$(mktemp -d)"
+trap 'rm -rf "$side_effect_dir"' EXIT
+hostile_scope="changed\"; touch $side_effect_dir/injected; #"
+set +e
+"$SCRIPT" --scope "$hostile_scope" --event-name push --base base-sha --head head-sha >/dev/null 2>&1
+hostile_status=$?
+set -e
+if [[ "$hostile_status" != "2" ]]; then
+	echo "FAIL: hostile scope did not exit 2" >&2
+	exit 1
+fi
+if [[ -e "$side_effect_dir/injected" ]]; then
+	echo "FAIL: hostile scope executed a shell side effect" >&2
+	exit 1
+fi
 if "$SCRIPT" --scope all >/dev/null 2>&1; then
 	echo "FAIL: missing event name was accepted" >&2
 	exit 1

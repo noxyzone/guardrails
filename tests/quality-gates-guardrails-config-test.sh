@@ -12,7 +12,8 @@ for required in \
 	'scope:' \
 	'default: changed' \
 	'quality-gate-scope-args\.sh' \
-	'--scope "\$\{\{ inputs\.scope \}\}"' \
+	'SCOPE_INPUT: \$\{\{ inputs\.scope \}\}' \
+	'--scope "\$SCOPE_INPUT"' \
 	'--event-name "\$\{\{ github\.event_name \}\}"' \
 	'done <"\$scope_args_file"' \
 	'ref: \$\{\{ inputs\.guardrails-ref \}\}' \
@@ -89,7 +90,9 @@ for required in \
 	'xargs -0 -r shellcheck --' \
 	'xargs -0 ast-grep scan --config .guardrails/sgconfig.yml --report-style short --' \
 	'xargs -0 swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml --' \
-	'xargs -0 swiftformat --lint --config .guardrails/.swiftformat'; do
+	'while IFS= read -r -d '\'''\'' path; do' \
+	'printf '\''./%s\0'\'' "$path"' \
+	'done <"$targets" | xargs -0 swiftformat --lint --config .guardrails/.swiftformat'; do
 	if ! rg -Fq "$required" "$WORKFLOW"; then
 		echo "FAIL: QualityGates must NUL-delimit file arguments using supported tool options: $required" >&2
 		exit 1
@@ -103,6 +106,7 @@ for forbidden in \
 	'pipx install ruff$' \
 	'HOMEBREW_CORE_REVISION' \
 	'brew install ast-grep' \
+	'xargs -0 swiftformat --lint --config .guardrails/.swiftformat <"\$targets"' \
 	'range_mode=direct' \
 	'scope_args=\(--all\)' \
 	'scope_args=\(--changed' \
@@ -154,6 +158,18 @@ fi
 
 if [[ "$(rg -c 'quality-gate-scope-args\.sh' "$WORKFLOW")" != "3" ]]; then
 	echo "FAIL: every change-scoped workflow entrance must use the shared scope resolver" >&2
+	exit 1
+fi
+if [[ "$(rg -c '^          SCOPE_INPUT: \$\{\{ inputs\.scope \}\}$' "$WORKFLOW")" != "3" ]]; then
+	echo "FAIL: every change-scoped workflow entrance must isolate scope through the step environment" >&2
+	exit 1
+fi
+if [[ "$(rg -c -- '--scope "\$SCOPE_INPUT"' "$WORKFLOW")" != "3" ]]; then
+	echo "FAIL: every change-scoped workflow entrance must pass the isolated scope as one shell argument" >&2
+	exit 1
+fi
+if rg -q -- '--scope "\$\{\{ inputs\.scope \}\}"' "$WORKFLOW"; then
+	echo "FAIL: workflow expressions must not be interpolated directly into the scope resolver shell command" >&2
 	exit 1
 fi
 

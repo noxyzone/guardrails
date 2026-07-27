@@ -72,6 +72,7 @@ config_head_commit="$(printf 'config head\n' | git -C "$FIXTURE" commit-tree "$c
 config_output="$FIXTURE/config-outputs.txt"
 "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
 	--repo "$FIXTURE" \
+	--changed \
 	--base "$config_base_commit" \
 	--head "$config_head_commit" \
 	--output "$config_output"
@@ -82,11 +83,21 @@ fi
 
 if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
 	--repo "$FIXTURE" \
+	--changed \
 	--base "$base_sha" \
 	--head "$head_sha" \
 	--range-mode invalid \
 	--output "$FIXTURE/invalid-range-mode.txt" 2>/dev/null; then
 	printf 'FAIL: invalid range mode was accepted\n' >&2
+	exit 1
+fi
+
+if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
+	--repo "$FIXTURE" \
+	--base "$base_sha" \
+	--head "$head_sha" \
+	--output "$FIXTURE/missing-scope-mode.txt" 2>/dev/null; then
+	printf 'FAIL: base and head were accepted without an explicit scope mode\n' >&2
 	exit 1
 fi
 

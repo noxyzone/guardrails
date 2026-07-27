@@ -159,4 +159,26 @@ fi
 grep -F 'path contains a newline' "$FIXTURE/newline.err" >/dev/null ||
 	fail "newline path failure must explain the unsupported path"
 
+if "$TARGETS" --repo "$repo" --staged --all --kind any >"$FIXTURE/conflicting-staged-all.bin" 2>/dev/null; then
+	fail "staged and all modes must be mutually exclusive"
+fi
+if "$TARGETS" \
+	--repo "$repo" \
+	--changed \
+	--all \
+	--base "$base_commit" \
+	--head "$head_commit" \
+	--kind any >"$FIXTURE/conflicting-changed-all.bin" 2>/dev/null; then
+	fail "changed and all modes must be mutually exclusive"
+fi
+if "$TARGETS" \
+	--repo "$repo" \
+	--staged \
+	--changed \
+	--base "$base_commit" \
+	--head "$head_commit" \
+	--kind any >"$FIXTURE/conflicting-staged-changed.bin" 2>/dev/null; then
+	fail "staged and changed modes must be mutually exclusive"
+fi
+
 printf 'PASS: quality gate targets\n'

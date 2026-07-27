@@ -19,6 +19,11 @@ USAGE
 	exit 2
 }
 
+select_mode() {
+	[[ -z "$mode" ]] || usage
+	mode="$1"
+}
+
 while (($# > 0)); do
 	case "$1" in
 	--repo)
@@ -27,15 +32,15 @@ while (($# > 0)); do
 		shift 2
 		;;
 	--staged)
-		mode="staged"
+		select_mode staged
 		shift
 		;;
 	--changed)
-		mode="changed"
+		select_mode changed
 		shift
 		;;
 	--all)
-		mode="all"
+		select_mode all
 		shift
 		;;
 	--base)
