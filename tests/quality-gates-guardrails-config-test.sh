@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT_DIR/.github/workflows/quality-gates.yml"
+PRETTIER_CONFIG="$ROOT_DIR/prettier.cjs"
 
 # shellcheck disable=SC2016
 for required in \
@@ -46,6 +47,16 @@ for required in \
 	'ast-grep scan --config \.guardrails/sgconfig\.yml --report-style short'; do
 	if ! rg -q -- "$required" "$WORKFLOW"; then
 		echo "FAIL: QualityGates must wire ast-grep rule: $required" >&2
+		exit 1
+	fi
+done
+
+# shellcheck disable=SC2016
+for required in \
+	'const qualityGatesPackageRoot = path.join(__dirname, ".github/quality-gates");' \
+	'return require.resolve(name, { paths: [qualityGatesPackageRoot] });'; do
+	if ! rg -Fq "$required" "$PRETTIER_CONFIG"; then
+		echo "FAIL: Prettier plugins must resolve from the QualityGates package root before using the local fallback: $required" >&2
 		exit 1
 	fi
 done

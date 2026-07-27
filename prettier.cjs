@@ -2,12 +2,17 @@ const path = require("node:path");
 const os = require("node:os");
 
 const globalActive = path.join(os.homedir(), "Library/pnpm/global-active");
+const qualityGatesPackageRoot = path.join(__dirname, ".github/quality-gates");
 
 function resolvePlugin(name, fallback) {
   try {
     return require.resolve(name);
   } catch (_error) {
-    return path.join(globalActive, fallback);
+    try {
+      return require.resolve(name, { paths: [qualityGatesPackageRoot] });
+    } catch (_qualityGatesError) {
+      return path.join(globalActive, fallback);
+    }
   }
 }
 
