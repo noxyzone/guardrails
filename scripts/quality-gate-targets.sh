@@ -198,7 +198,7 @@ matches_kind() {
 }
 
 write_scope_paths "$source_paths"
-"$script_dir/quality-gate-path-filter.sh" --null <"$source_paths" >"$filtered_paths"
+"$script_dir/quality-gate-path-filter.sh" --repo "$repo" --null <"$source_paths" >"$filtered_paths"
 
 expand_scope=0
 while IFS= read -r -d '' path; do
@@ -213,7 +213,7 @@ done <"$filtered_paths"
 
 if [[ "$expand_scope" == 1 ]]; then
 	write_all_paths "$all_paths"
-	"$script_dir/quality-gate-path-filter.sh" --null <"$all_paths" >"$filtered_paths"
+	"$script_dir/quality-gate-path-filter.sh" --repo "$repo" --null <"$all_paths" >"$filtered_paths"
 fi
 
 while IFS= read -r -d '' path; do

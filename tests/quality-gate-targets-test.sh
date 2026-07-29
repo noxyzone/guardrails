@@ -54,7 +54,11 @@ head_commit="$(printf 'head\n' | git -C "$repo" commit-tree "$head_tree" -p "$ba
 
 changed_output="$FIXTURE/changed.bin"
 "$TARGETS" --repo "$repo" --changed --base "$base_commit" --head "$head_commit" --kind any >"$changed_output"
-assert_null_paths "$changed_output" "Sources/Changed.swift" $'rename\ttarget.ts'
+assert_null_paths "$changed_output" \
+	".codex/tools/aidlc-state.ts" \
+	"Sources/Changed.swift" \
+	"aidlc/spaces/default/state.md" \
+	$'rename\ttarget.ts'
 
 git -C "$repo" reset -q
 printf 'staged\n' >"$repo/staged.txt"

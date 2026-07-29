@@ -73,7 +73,7 @@ for required_asset in treefmt.toml prettier.cjs .swiftformat; do
 done
 
 treefmt_exclusions_path="$(mktemp "${TMPDIR:-/tmp}/treefmt-excludes.XXXXXX")"
-if ! "$script_dir/quality-gate-path-filter.sh" --treefmt-excludes >"$treefmt_exclusions_path"; then
+if ! "$script_dir/quality-gate-path-filter.sh" --repo "$repo_root" --treefmt-excludes >"$treefmt_exclusions_path"; then
 	fail "quality gate path filter failed"
 fi
 while IFS= read -r exclusion; do

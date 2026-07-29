@@ -35,5 +35,7 @@ jobs:
             done < "$markdownlint_ignore"
           fi
           if [ -n "$markdown_files" ]; then
-            printf '%s\n' "$markdown_files" | xargs markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml
+            printf '%s\n' "$markdown_files" \
+              | .guardrails/scripts/quality-gate-path-filter.sh --repo "$GITHUB_WORKSPACE" \
+              | xargs markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml
           fi

@@ -21,8 +21,21 @@ actual="$({
 		'.codex/hooks.json' \
 		'.codex/rules/default.rules' \
 		'scripts/aidlc-ts-check.sh'
-} | "$FILTER")"
-expected="$(printf '%s\n' '.codex/hooks.json' '.codex/rules/default.rules' 'scripts/aidlc-ts-check.sh')"
+} | "$FILTER" --repo /tmp)"
+expected="$(printf '%s\n' \
+	'.agents/skills/aidlc-build-and-test/SKILL.md' \
+	'.codex/agents/aidlc-quality-agent.toml' \
+	'.codex/aidlc-common/conductor.md' \
+	'.codex/hooks/aidlc-audit.ts' \
+	'.codex/knowledge/aidlc-review/knowledge.md' \
+	'.codex/scopes/aidlc-runtime.toml' \
+	'.codex/sensors/aidlc-reviewer.ts' \
+	'.codex/tools/aidlc-state.ts' \
+	'.codex/tools/data/stage-graph.json' \
+	'aidlc/spaces/default/memory/org.md' \
+	'.codex/hooks.json' \
+	'.codex/rules/default.rules' \
+	'scripts/aidlc-ts-check.sh')"
 if [[ "$actual" != "$expected" ]]; then
 	printf 'FAIL: managed artifact filter output mismatch\nexpected:\n%s\nactual:\n%s\n' "$expected" "$actual" >&2
 	exit 1
@@ -33,19 +46,42 @@ null_actual="$({
 		'.codex/tools/aidlc-state.ts' \
 		$'--ignore-pattern=evil.cjs\nkept.ts' \
 		'scripts/aidlc-ts-check.sh'
-} | "$FILTER" --null | od -An -tx1 | tr -d ' \n')"
-null_expected="$(printf '%s\0' $'--ignore-pattern=evil.cjs\nkept.ts' 'scripts/aidlc-ts-check.sh' | od -An -tx1 | tr -d ' \n')"
+} | "$FILTER" --repo /tmp --null | od -An -tx1 | tr -d ' \n')"
+null_expected="$(printf '%s\0' '.codex/tools/aidlc-state.ts' $'--ignore-pattern=evil.cjs\nkept.ts' 'scripts/aidlc-ts-check.sh' | od -An -tx1 | tr -d ' \n')"
 if [[ "$null_actual" != "$null_expected" ]]; then
 	printf 'FAIL: null-delimited managed artifact filter output mismatch\nexpected: %s\nactual: %s\n' "$null_expected" "$null_actual" >&2
 	exit 1
 fi
 
-treefmt_excludes="$("$FILTER" --treefmt-excludes)"
-for required_exclude in \
-	'.codex/agents/aidlc-*' \
-	'.codex/knowledge/aidlc-*' \
-	'.codex/scopes/aidlc-*' \
-	'.codex/sensors/aidlc-*'; do
+# An AIDLC distribution manifest excludes only its exact official paths. It must
+# not hide adjacent project-owned files merely because their names resemble
+# packaged AIDLC paths.
+fixture="$(mktemp -d)"
+trap 'rm -rf "$fixture"' EXIT
+git -C "$fixture" init -q
+cat >"$fixture/.aidlc-distribution-manifest" <<'MANIFEST'
+# aidlc-distribution-manifest-v1
+# upstream-revision: 207db2ea65352ca89717d5970bef97825114bddf
+.codex/config.toml
+.codex/agents/aidlc-quality-agent.toml
+MANIFEST
+manifest_actual="$({
+	printf '%s\n' \
+		'.codex/config.toml' \
+		'.codex/agents/aidlc-quality-agent.toml' \
+		'.codex/agents/aidlc-project-agent.toml' \
+		'aidlc/spaces/default/memory/org.md'
+} | "$FILTER" --repo "$fixture")"
+manifest_expected="$(printf '%s\n' \
+	'.codex/agents/aidlc-project-agent.toml' \
+	'aidlc/spaces/default/memory/org.md')"
+if [[ "$manifest_actual" != "$manifest_expected" ]]; then
+	printf 'FAIL: manifest filtering must exclude only exact distribution paths\nexpected:\n%s\nactual:\n%s\n' "$manifest_expected" "$manifest_actual" >&2
+	exit 1
+fi
+
+treefmt_excludes="$("$FILTER" --repo /tmp --treefmt-excludes)"
+for required_exclude in '.agents/skills/.system/**'; do
 	if ! printf '%s\n' "$treefmt_excludes" | rg -Fxq -- "$required_exclude"; then
 		printf 'FAIL: Treefmt excludes do not cover managed artifact path: %s\n' "$required_exclude" >&2
 		exit 1
