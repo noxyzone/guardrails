@@ -141,7 +141,7 @@ fi
 
 filtered_paths_file="$(mktemp "${TMPDIR:-/tmp}/typos-check-filtered-paths.XXXXXX")"
 trap 'rm -f "$paths_file" "$filtered_paths_file"' EXIT
-"$script_dir/quality-gate-path-filter.sh" <"$paths_file" >"$filtered_paths_file"
+"$script_dir/quality-gate-path-filter.sh" --repo "$repo" <"$paths_file" >"$filtered_paths_file"
 if [[ ! -s "$filtered_paths_file" ]]; then
 	exit 0
 fi

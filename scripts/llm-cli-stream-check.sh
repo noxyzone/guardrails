@@ -92,7 +92,7 @@ is_small_producer() {
 }
 
 FOUND=0
-FILES="$(collect_files | "$script_dir/quality-gate-path-filter.sh" | while IFS= read -r file; do
+FILES="$(collect_files | "$script_dir/quality-gate-path-filter.sh" --repo "$REPO" | while IFS= read -r file; do
 	is_shell_file "$file" || continue
 	is_excluded_file "$file" && continue
 	printf '%s\n' "$file"

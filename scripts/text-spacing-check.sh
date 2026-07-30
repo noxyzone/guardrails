@@ -98,7 +98,7 @@ is_excluded_file() {
 
 FOUND=0
 SPACING_PATTERN='[\p{Hiragana}\p{Katakana}\p{Han}] [A-Za-z0-9]|[A-Za-z0-9] [\p{Hiragana}\p{Katakana}\p{Han}]'
-FILES="$(collect_files | "$script_dir/quality-gate-path-filter.sh" | while IFS= read -r file; do
+FILES="$(collect_files | "$script_dir/quality-gate-path-filter.sh" --repo "$REPO" | while IFS= read -r file; do
 	is_target_file "$file" || continue
 	is_excluded_file "$file" && continue
 	printf '%s\n' "$file"
