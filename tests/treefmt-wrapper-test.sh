@@ -48,6 +48,18 @@ printf '%s\n' \
 	'command = "prettier"' \
 	'options = ["--config", ".guardrails/prettier.cjs", "--write"]' \
 	'' \
+	'[formatter.shfmt]' \
+	'command = "shfmt"' \
+	'options = ["-w"]' \
+	'' \
+	'[formatter.ruff]' \
+	'command = "ruff"' \
+	'options = ["format"]' \
+	'' \
+	'[formatter.taplo]' \
+	'command = "taplo"' \
+	'options = ["format"]' \
+	'' \
 	'[formatter.swiftformat]' \
 	'command = "swiftformat"' \
 	'options = ["--config", ".guardrails/.swiftformat"]' \
@@ -164,11 +176,31 @@ if ! rg -Fq '1 file changed' "$FIXTURE/treefmt-failure.stderr"; then
 	exit 1
 fi
 git -C "$FIXTURE/repo" checkout -q -- sensitive.txt
-if ! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/prettier.cjs\", \"--write\"]" \
+if ! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/prettier.cjs\", \"--check\"]" \
 	"$FIXTURE/config-capture.toml" ||
-	! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/.swiftformat\"]" \
+	rg -Fq -- '"--write"' "$FIXTURE/config-capture.toml" ||
+	! rg -Fq 'options = ["-d"]' "$FIXTURE/config-capture.toml" ||
+	! rg -Fq 'options = ["format", "--check"]' "$FIXTURE/config-capture.toml" ||
+	! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/.swiftformat\", \"--lint\"]" \
 		"$FIXTURE/config-capture.toml"; then
-	echo "FAIL: treefmt-check.sh did not bind formatter settings to the selected guardrails directory" >&2
+	echo "FAIL: treefmt-check.sh did not use check-only formatter settings" >&2
+	exit 1
+fi
+
+if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+	TREEFMT_CONFIG_CAPTURE="$FIXTURE/write-config-capture.toml" \
+	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+	--write --repo "$FIXTURE/repo" >/dev/null 2>&1; then
+	echo "FAIL: treefmt-check.sh rejected write mode" >&2
+	exit 1
+fi
+if ! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/prettier.cjs\", \"--write\"]" \
+	"$FIXTURE/write-config-capture.toml" ||
+	! rg -Fq 'options = ["-w"]' "$FIXTURE/write-config-capture.toml" ||
+	! rg -Fq 'options = ["format"]' "$FIXTURE/write-config-capture.toml" ||
+	! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/.swiftformat\"]" \
+		"$FIXTURE/write-config-capture.toml"; then
+	echo "FAIL: treefmt-check.sh did not preserve formatter write settings" >&2
 	exit 1
 fi
 
@@ -242,6 +274,27 @@ if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
 fi
 if [[ -e "$FIXTURE/repo/.editorconfig" ]]; then
 	echo "FAIL: treefmt-check.sh left a partial editorconfig after write failure" >&2
+	exit 1
+fi
+
+# treefmt --ci only fails after formatters report a change; it does not prevent
+# formatter-specific write flags. A real formatter run must therefore leave an
+# unformatted tracked file untouched in check mode.
+CHECK_ONLY_REPO="$FIXTURE/check-only-repo"
+git init -q "$CHECK_ONLY_REPO"
+git -C "$CHECK_ONLY_REPO" config user.email fixture@example.invalid
+git -C "$CHECK_ONLY_REPO" config user.name Fixture
+printf '{"fixture":true}\n' >"$CHECK_ONLY_REPO/unformatted.json"
+git -C "$CHECK_ONLY_REPO" add unformatted.json
+git -C "$CHECK_ONLY_REPO" commit -qm initial
+check_only_before="$(cat "$CHECK_ONLY_REPO/unformatted.json")"
+if "$SCRIPT" --check --repo "$CHECK_ONLY_REPO" >/dev/null 2>&1; then
+	echo "FAIL: treefmt-check.sh accepted unformatted input in check mode" >&2
+	exit 1
+fi
+if [[ "$(cat "$CHECK_ONLY_REPO/unformatted.json")" != "$check_only_before" ]] ||
+	! git -C "$CHECK_ONLY_REPO" diff --quiet -- unformatted.json; then
+	echo "FAIL: treefmt-check.sh modified a tracked file in check mode" >&2
 	exit 1
 fi
 

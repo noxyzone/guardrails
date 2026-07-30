@@ -144,7 +144,7 @@ fi
 toml_guardrails_dir="${guardrails_dir//\\/\\\\}"
 toml_guardrails_dir="${toml_guardrails_dir//\"/\\\"}"
 treefmt_config_path="$(mktemp "${TMPDIR:-/tmp}/treefmt-runtime.XXXXXX.toml")"
-awk -v guardrails_dir="$toml_guardrails_dir" -v without_swiftformat="$treefmt_without_swiftformat" '
+awk -v guardrails_dir="$toml_guardrails_dir" -v without_swiftformat="$treefmt_without_swiftformat" -v treefmt_mode="$treefmt_mode" '
     /^\[formatter\.swiftformat\]$/ && without_swiftformat == 1 {
         skip=1
         next
@@ -156,11 +156,27 @@ awk -v guardrails_dir="$toml_guardrails_dir" -v without_swiftformat="$treefmt_wi
         next
     }
     $0 == "options = [\"--config\", \".guardrails/prettier.cjs\", \"--write\"]" {
-        printf "options = [\"--config\", \"%s/prettier.cjs\", \"--write\"]\n", guardrails_dir
+        if (treefmt_mode == "check") {
+            printf "options = [\"--config\", \"%s/prettier.cjs\", \"--check\"]\n", guardrails_dir
+        } else {
+            printf "options = [\"--config\", \"%s/prettier.cjs\", \"--write\"]\n", guardrails_dir
+        }
+        next
+    }
+    $0 == "options = [\"-w\"]" && treefmt_mode == "check" {
+        print "options = [\"-d\"]"
+        next
+    }
+    $0 == "options = [\"format\"]" && treefmt_mode == "check" {
+        print "options = [\"format\", \"--check\"]"
         next
     }
     $0 == "options = [\"--config\", \".guardrails/.swiftformat\"]" {
-        printf "options = [\"--config\", \"%s/.swiftformat\"]\n", guardrails_dir
+        if (treefmt_mode == "check") {
+            printf "options = [\"--config\", \"%s/.swiftformat\", \"--lint\"]\n", guardrails_dir
+        } else {
+            printf "options = [\"--config\", \"%s/.swiftformat\"]\n", guardrails_dir
+        }
         next
     }
     {
