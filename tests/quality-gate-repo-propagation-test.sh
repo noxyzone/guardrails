@@ -16,6 +16,7 @@ printf '%s\n' \
 	'.agents/skills/aidlc-fixture/managed.md' \
 	'.agents/skills/aidlc-fixture/managed.sh' >"$FIXTURE/.aidlc-distribution-manifest"
 printf '%s\n' 'あ A' >"$FIXTURE/.agents/skills/aidlc-fixture/managed.md"
+# shellcheck disable=SC2016 # fixtureとして書き出すスクリプト本文であり、ここで展開してはならない
 printf '%s\n' '#!/usr/bin/env bash' 'codex exec - <in | tee "$log_file"' >"$FIXTURE/.agents/skills/aidlc-fixture/managed.sh"
 chmod +x "$FIXTURE/.agents/skills/aidlc-fixture/managed.sh"
 printf '%s\n' '.agents/skills/aidlc-fixture/managed.md' >"$FIXTURE/managed-markdown-paths"

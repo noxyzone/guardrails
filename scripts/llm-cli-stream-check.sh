@@ -77,6 +77,10 @@ is_excluded_file() {
 	contrib/* | vendor/* | node_modules/* | .claude/plugins/* | plugins/cache/*)
 		return 0
 		;;
+	# このcheck自身のテスト。検出対象の悪い例をfixtureとして本文に持つため。
+	tests/llm-cli-stream-check-test.sh)
+		return 0
+		;;
 	esac
 	return 1
 }

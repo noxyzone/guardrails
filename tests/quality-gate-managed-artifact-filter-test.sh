@@ -81,6 +81,7 @@ if [[ "$manifest_actual" != "$manifest_expected" ]]; then
 fi
 
 treefmt_excludes="$("$FILTER" --repo /tmp --treefmt-excludes)"
+# shellcheck disable=SC2041 # 単一要素のglob文字列リテラルであり、コマンド実行ではない
 for required_exclude in '.agents/skills/.system/**'; do
 	if ! printf '%s\n' "$treefmt_excludes" | rg -Fxq -- "$required_exclude"; then
 		printf 'FAIL: Treefmt excludes do not cover managed artifact path: %s\n' "$required_exclude" >&2

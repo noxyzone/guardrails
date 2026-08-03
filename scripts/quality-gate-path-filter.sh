@@ -109,25 +109,25 @@ is_managed_artifact_path() {
 }
 
 case "$mode" in
-	null)
-		while IFS= read -r -d '' path; do
-			[[ -n "$path" ]] || continue
-			is_managed_artifact_path "$path" && continue
-			printf '%s\0' "$path"
-		done
-		;;
-	treefmt-excludes)
-		printf '%s\n' '.agents/skills/.system/**'
-		printf '%s\n' "${distribution_paths[@]}"
-		;;
-	manifest-paths)
-		printf '%s\n' "${distribution_paths[@]}"
-		;;
-	lines)
-		while IFS= read -r path || [[ -n "$path" ]]; do
-			[[ -n "$path" ]] || continue
-			is_managed_artifact_path "$path" && continue
-			printf '%s\n' "$path"
-		done
-		;;
+null)
+	while IFS= read -r -d '' path; do
+		[[ -n "$path" ]] || continue
+		is_managed_artifact_path "$path" && continue
+		printf '%s\0' "$path"
+	done
+	;;
+treefmt-excludes)
+	printf '%s\n' '.agents/skills/.system/**'
+	printf '%s\n' "${distribution_paths[@]}"
+	;;
+manifest-paths)
+	printf '%s\n' "${distribution_paths[@]}"
+	;;
+lines)
+	while IFS= read -r path || [[ -n "$path" ]]; do
+		[[ -n "$path" ]] || continue
+		is_managed_artifact_path "$path" && continue
+		printf '%s\n' "$path"
+	done
+	;;
 esac
