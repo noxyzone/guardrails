@@ -200,6 +200,8 @@ if [[ "${#treefmt_exclude_args[@]}" -gt 0 ]]; then
 fi
 treefmt_command+=(--config-file "$treefmt_config_path")
 if [[ "${#treefmt_args[@]}" -gt 0 ]]; then
+	# 先頭がハイフンのファイル名をoptionとして解釈させないため、必ず--で終端する。
+	treefmt_command+=(--)
 	treefmt_command+=("${treefmt_args[@]}")
 fi
 

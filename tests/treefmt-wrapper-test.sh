@@ -284,6 +284,10 @@ CHECK_ONLY_REPO="$FIXTURE/check-only-repo"
 git init -q "$CHECK_ONLY_REPO"
 git -C "$CHECK_ONLY_REPO" config user.email fixture@example.invalid
 git -C "$CHECK_ONLY_REPO" config user.name Fixture
+# fixtureのcommitは開発機のglobal core.hooksPathを引き継がせない。共有hookが走ると、
+# 意図的に未整形のfixtureをcommitできずテストが実行環境依存で落ちる。
+mkdir -p "$FIXTURE/no-hooks"
+git -C "$CHECK_ONLY_REPO" config core.hooksPath "$FIXTURE/no-hooks"
 printf '{"fixture":true}\n' >"$CHECK_ONLY_REPO/unformatted.json"
 git -C "$CHECK_ONLY_REPO" add unformatted.json
 git -C "$CHECK_ONLY_REPO" commit -qm initial
