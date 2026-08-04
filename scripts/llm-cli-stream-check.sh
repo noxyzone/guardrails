@@ -44,7 +44,9 @@ fi
 collect_files() {
 	case "$MODE" in
 	--all)
-		git -C "$REPO" ls-files
+		# quotepathを無効化しないと、非ASCII名のファイルが"\346..."形式で出力され、
+		# 実ファイルとして解決できず検査から漏れる。
+		git -C "$REPO" -c core.quotepath=false ls-files
 		;;
 	--staged)
 		git -C "$REPO" -c core.quotepath=false diff --cached --name-only --diff-filter=ACM
