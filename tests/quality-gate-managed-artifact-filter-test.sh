@@ -3,11 +3,16 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FILTER="$ROOT_DIR/scripts/quality-gate-path-filter.sh"
+TARGETS="$ROOT_DIR/scripts/quality-gate-targets.sh"
 WORKFLOW="$ROOT_DIR/.github/workflows/quality-gates.yml"
 
 actual="$({
 	printf '%s\n' \
 		'.agents/skills/.system/imagegen/SKILL.md' \
+		'.agents/skills/hatch-pet/SKILL.md' \
+		'.agents/skills/openai-curated-build-run-debug/SKILL.md' \
+		'.agents/skills/nocturnalzone-build-run-debug/SKILL.md' \
+		'.agents/skills/openai-curatedness-build-run-debug/SKILL.md' \
 		'.agents/skills/aidlc-build-and-test/SKILL.md' \
 		'.codex/agents/aidlc-quality-agent.toml' \
 		'.codex/aidlc-common/conductor.md' \
@@ -23,6 +28,8 @@ actual="$({
 		'scripts/aidlc-ts-check.sh'
 } | "$FILTER" --repo /tmp)"
 expected="$(printf '%s\n' \
+	'.agents/skills/nocturnalzone-build-run-debug/SKILL.md' \
+	'.agents/skills/openai-curatedness-build-run-debug/SKILL.md' \
 	'.agents/skills/aidlc-build-and-test/SKILL.md' \
 	'.codex/agents/aidlc-quality-agent.toml' \
 	'.codex/aidlc-common/conductor.md' \
@@ -43,11 +50,20 @@ fi
 
 null_actual="$({
 	printf '%s\0' \
+		'.agents/skills/hatch-pet/agents/openai.yaml' \
+		'.agents/skills/openai-curated-build-run-debug/agents/openai.yaml' \
+		'.agents/skills/nocturnalzone-build-run-debug/SKILL.md' \
+		'.agents/skills/openai-curatedness-build-run-debug/SKILL.md' \
 		'.codex/tools/aidlc-state.ts' \
 		$'--ignore-pattern=evil.cjs\nkept.ts' \
 		'scripts/aidlc-ts-check.sh'
 } | "$FILTER" --repo /tmp --null | od -An -tx1 | tr -d ' \n')"
-null_expected="$(printf '%s\0' '.codex/tools/aidlc-state.ts' $'--ignore-pattern=evil.cjs\nkept.ts' 'scripts/aidlc-ts-check.sh' | od -An -tx1 | tr -d ' \n')"
+null_expected="$(printf '%s\0' \
+	'.agents/skills/nocturnalzone-build-run-debug/SKILL.md' \
+	'.agents/skills/openai-curatedness-build-run-debug/SKILL.md' \
+	'.codex/tools/aidlc-state.ts' \
+	$'--ignore-pattern=evil.cjs\nkept.ts' \
+	'scripts/aidlc-ts-check.sh' | od -An -tx1 | tr -d ' \n')"
 if [[ "$null_actual" != "$null_expected" ]]; then
 	printf 'FAIL: null-delimited managed artifact filter output mismatch\nexpected: %s\nactual: %s\n' "$null_expected" "$null_actual" >&2
 	exit 1
@@ -80,9 +96,45 @@ if [[ "$manifest_actual" != "$manifest_expected" ]]; then
 	exit 1
 fi
 
+mkdir -p \
+	"$fixture/.agents/skills/hatch-pet" \
+	"$fixture/.agents/skills/openai-curated-build-run-debug" \
+	"$fixture/.agents/skills/nocturnalzone-build-run-debug" \
+	"$fixture/.agents/skills/openai-curatedness-build-run-debug"
+printf '%s\n' '公式 配布物の検査違反fixture' >"$fixture/.agents/skills/hatch-pet/SKILL.md"
+printf '%s\n' '公式 配布物の検査違反fixture' >"$fixture/.agents/skills/openai-curated-build-run-debug/SKILL.md"
+printf '%s\n' '自作スキルfixture' >"$fixture/.agents/skills/nocturnalzone-build-run-debug/SKILL.md"
+printf '%s\n' '類似名fixture' >"$fixture/.agents/skills/openai-curatedness-build-run-debug/SKILL.md"
+git -C "$fixture" add \
+	.agents/skills/hatch-pet \
+	.agents/skills/openai-curated-build-run-debug \
+	.agents/skills/nocturnalzone-build-run-debug \
+	.agents/skills/openai-curatedness-build-run-debug
+
+# QualityGatesの共通対象収集を実際に通し、個別ignoreを持たない検査面も
+# managed artifact filterで同じ境界になることを確認する。
+quality_target_expected="$(printf '%s\0' \
+	'.agents/skills/nocturnalzone-build-run-debug/SKILL.md' \
+	'.agents/skills/openai-curatedness-build-run-debug/SKILL.md' |
+	od -An -tx1 | tr -d ' \n')"
+for kind in markdownlint secretlint typos text_spacing treefmt_non_swift; do
+	quality_target_actual="$(
+		"$TARGETS" --repo "$fixture" --all --kind "$kind" |
+			od -An -tx1 | tr -d ' \n'
+	)"
+	if [[ "$quality_target_actual" != "$quality_target_expected" ]]; then
+		printf 'FAIL: %s targets do not preserve the managed artifact boundary\nexpected: %s\nactual: %s\n' \
+			"$kind" "$quality_target_expected" "$quality_target_actual" >&2
+		exit 1
+	fi
+done
+
 treefmt_excludes="$("$FILTER" --repo /tmp --treefmt-excludes)"
 # shellcheck disable=SC2041 # 単一要素のglob文字列リテラルであり、コマンド実行ではない
-for required_exclude in '.agents/skills/.system/**'; do
+for required_exclude in \
+	'.agents/skills/.system/**' \
+	'.agents/skills/hatch-pet/**' \
+	'.agents/skills/openai-curated-*/**'; do
 	if ! printf '%s\n' "$treefmt_excludes" | rg -Fxq -- "$required_exclude"; then
 		printf 'FAIL: Treefmt excludes do not cover managed artifact path: %s\n' "$required_exclude" >&2
 		exit 1

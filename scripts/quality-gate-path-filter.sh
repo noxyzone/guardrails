@@ -98,7 +98,9 @@ load_distribution_manifest
 is_managed_artifact_path() {
 	local distribution_path
 	case "$1" in
-	.agents/skills/.system | .agents/skills/.system/*)
+	.agents/skills/.system | .agents/skills/.system/* | \
+		.agents/skills/hatch-pet | .agents/skills/hatch-pet/* | \
+		.agents/skills/openai-curated-*)
 		return 0
 		;;
 	esac
@@ -118,6 +120,8 @@ null)
 	;;
 treefmt-excludes)
 	printf '%s\n' '.agents/skills/.system/**'
+	printf '%s\n' '.agents/skills/hatch-pet/**'
+	printf '%s\n' '.agents/skills/openai-curated-*/**'
 	printf '%s\n' "${distribution_paths[@]}"
 	;;
 manifest-paths)

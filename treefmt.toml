@@ -1,7 +1,12 @@
 [formatter.prettier]
 command = "prettier"
 options = ["--config", ".guardrails/prettier.cjs", "--write"]
-excludes = [".agents/skills/.system/**", "artifacts/**"]
+excludes = [
+  ".agents/skills/.system/**",
+  ".agents/skills/hatch-pet/**",
+  ".agents/skills/openai-curated-*/**",
+  "artifacts/**",
+]
 includes = [
   "*.cjs",
   "*.css",

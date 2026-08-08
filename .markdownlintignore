@@ -8,6 +8,7 @@ build/
 DerivedData/
 artifacts/
 .agents/skills/.system/
+.agents/skills/openai-curated-*/
 Vendor/BundledGit/build/
 Vendor/BundledGit/cache/
 scripts/delete-all-deployments/
