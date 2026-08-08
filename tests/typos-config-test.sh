@@ -18,9 +18,23 @@ for required in \
 	fi
 done
 
-printf 'persiyanov/herdr-reviewr\n' >"$TMP_ROOT/reviewr.txt"
-if ! typos --config "$CONFIG" "$TMP_ROOT/reviewr.txt" >/dev/null; then
-	echo "FAIL: typos.toml must allow the reviewr product name" >&2
+printf 'reviewrは不採用。\n' >"$TMP_ROOT/standalone.md"
+printf 'memex/reviewrは不採用。\n' >"$TMP_ROOT/slash-form.md"
+printf 'persiyanov/herdr-reviewrは不採用。\n' >"$TMP_ROOT/full-selector.md"
+for fixture_file in standalone.md slash-form.md full-selector.md; do
+	if ! typos --isolated --force-exclude --config "$CONFIG" "$TMP_ROOT/$fixture_file" >/dev/null; then
+		echo "FAIL: typos.toml must allow the reviewr product name: $fixture_file" >&2
+		exit 1
+	fi
+done
+
+printf '%s%s\n' 't' 'eh' >"$TMP_ROOT/known-typo.txt"
+if [[ "$(cat "$TMP_ROOT/known-typo.txt")" != "$(printf '%s%s' 't' 'eh')" ]]; then
+	echo "FAIL: known misspelling fixture content is malformed" >&2
+	exit 1
+fi
+if typos --isolated --force-exclude --config "$CONFIG" "$TMP_ROOT/known-typo.txt" >/dev/null; then
+	echo "FAIL: typos.toml must continue to reject known misspellings" >&2
 	exit 1
 fi
 

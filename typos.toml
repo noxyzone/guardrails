@@ -34,4 +34,6 @@ ND = "ND"
 # Xcodeテーマの実キー名。Apple側の綴りが"Exectuable"のため修正できない。
 DVTConsoleExectuableInputTextColor = "DVTConsoleExectuableInputTextColor"
 DVTConsoleExectuableOutputTextColor = "DVTConsoleExectuableOutputTextColor"
+
+[default.extend-words]
 reviewr = "reviewr"
