@@ -7,25 +7,25 @@ FIXTURE="$(mktemp -d)"
 trap 'rm -rf -- "$FIXTURE"' EXIT
 
 fail() {
-	printf 'FAIL: %s\n' "$*" >&2
-	exit 1
+    printf 'FAIL: %s\n' "$*" >&2
+    exit 1
 }
 
 assert_null_paths() {
-	local output_file="$1"
-	shift
-	local expected_file="$FIXTURE/expected.txt"
-	local actual_file="$FIXTURE/actual.txt"
+    local output_file="$1"
+    shift
+    local expected_file="$FIXTURE/expected.txt"
+    local actual_file="$FIXTURE/actual.txt"
 
-	printf '%s\n' "$@" | LC_ALL=C sort >"$expected_file"
-	tr '\0' '\n' <"$output_file" | LC_ALL=C sort >"$actual_file"
-	cmp -s "$expected_file" "$actual_file" || {
-		printf 'expected:\n' >&2
-		cat "$expected_file" >&2
-		printf 'actual:\n' >&2
-		cat "$actual_file" >&2
-		fail "target paths differ"
-	}
+    printf '%s\n' "$@" | LC_ALL=C sort >"$expected_file"
+    tr '\0' '\n' <"$output_file" | LC_ALL=C sort >"$actual_file"
+    cmp -s "$expected_file" "$actual_file" || {
+        printf 'expected:\n' >&2
+        cat "$expected_file" >&2
+        printf 'actual:\n' >&2
+        cat "$actual_file" >&2
+        fail "target paths differ"
+    }
 }
 
 repo="$FIXTURE/repo"
@@ -55,10 +55,10 @@ head_commit="$(printf 'head\n' | git -C "$repo" commit-tree "$head_tree" -p "$ba
 changed_output="$FIXTURE/changed.bin"
 "$TARGETS" --repo "$repo" --changed --base "$base_commit" --head "$head_commit" --kind any >"$changed_output"
 assert_null_paths "$changed_output" \
-	".codex/tools/aidlc-state.ts" \
-	"Sources/Changed.swift" \
-	"aidlc/spaces/default/state.md" \
-	$'rename\ttarget.ts'
+    ".codex/tools/aidlc-state.ts" \
+    "Sources/Changed.swift" \
+    "aidlc/spaces/default/state.md" \
+    $'rename\ttarget.ts'
 
 git -C "$repo" reset -q
 printf 'staged\n' >"$repo/staged.txt"
@@ -71,8 +71,8 @@ assert_null_paths "$staged_output" "staged.txt"
 printf '#!/usr/bin/env bash\nexit 0\n' >"$repo/tool"
 line_number=0
 while [[ "$line_number" -lt 20000 ]]; do
-	printf ': # padding %s\n' "$line_number" >>"$repo/tool"
-	line_number=$((line_number + 1))
+    printf ': # padding %s\n' "$line_number" >>"$repo/tool"
+    line_number=$((line_number + 1))
 done
 git -C "$repo" add -- tool
 shell_output="$FIXTURE/shell.bin"
@@ -101,16 +101,16 @@ git -C "$repo" read-tree "$swift_config_tree"
 git -C "$repo" update-index --force-remove .swiftlint.yml
 swift_config_deleted_tree="$(git -C "$repo" write-tree)"
 swift_config_deleted_commit="$(
-	printf 'swift config deleted\n' |
-		git -C "$repo" commit-tree "$swift_config_deleted_tree" -p "$swift_config_commit"
+    printf 'swift config deleted\n' |
+        git -C "$repo" commit-tree "$swift_config_deleted_tree" -p "$swift_config_commit"
 )"
 swift_config_deleted_output="$FIXTURE/swift-config-deleted.bin"
 "$TARGETS" \
-	--repo "$repo" \
-	--changed \
-	--base "$swift_config_commit" \
-	--head "$swift_config_deleted_commit" \
-	--kind swift >"$swift_config_deleted_output"
+    --repo "$repo" \
+    --changed \
+    --base "$swift_config_commit" \
+    --head "$swift_config_deleted_commit" \
+    --kind swift >"$swift_config_deleted_output"
 assert_null_paths "$swift_config_deleted_output" "Sources/Changed.swift" "Sources/Unchanged.swift"
 
 git -C "$repo" read-tree --reset "$swift_config_commit"
@@ -146,43 +146,43 @@ assert_null_paths "$diverged_output" "head.txt"
 
 direct_output="$FIXTURE/direct.bin"
 "$TARGETS" \
-	--repo "$diverged_repo" \
-	--changed \
-	--range-mode direct \
-	--base "$base_branch_commit" \
-	--head "$head_branch_commit" \
-	--kind any >"$direct_output"
+    --repo "$diverged_repo" \
+    --changed \
+    --range-mode direct \
+    --base "$base_branch_commit" \
+    --head "$head_branch_commit" \
+    --kind any >"$direct_output"
 assert_null_paths "$direct_output" "head.txt" "shared.txt"
 
 newline_path=$'docs/line\nbreak.md'
 printf '# newline\n' >"$repo/$newline_path"
 git -C "$repo" add -- "$newline_path"
 if "$TARGETS" --repo "$repo" --staged --kind markdownlint >"$FIXTURE/newline.bin" 2>"$FIXTURE/newline.err"; then
-	fail "newline paths must fail closed"
+    fail "newline paths must fail closed"
 fi
 grep -F 'path contains a newline' "$FIXTURE/newline.err" >/dev/null ||
-	fail "newline path failure must explain the unsupported path"
+    fail "newline path failure must explain the unsupported path"
 
 if "$TARGETS" --repo "$repo" --staged --all --kind any >"$FIXTURE/conflicting-staged-all.bin" 2>/dev/null; then
-	fail "staged and all modes must be mutually exclusive"
+    fail "staged and all modes must be mutually exclusive"
 fi
 if "$TARGETS" \
-	--repo "$repo" \
-	--changed \
-	--all \
-	--base "$base_commit" \
-	--head "$head_commit" \
-	--kind any >"$FIXTURE/conflicting-changed-all.bin" 2>/dev/null; then
-	fail "changed and all modes must be mutually exclusive"
+    --repo "$repo" \
+    --changed \
+    --all \
+    --base "$base_commit" \
+    --head "$head_commit" \
+    --kind any >"$FIXTURE/conflicting-changed-all.bin" 2>/dev/null; then
+    fail "changed and all modes must be mutually exclusive"
 fi
 if "$TARGETS" \
-	--repo "$repo" \
-	--staged \
-	--changed \
-	--base "$base_commit" \
-	--head "$head_commit" \
-	--kind any >"$FIXTURE/conflicting-staged-changed.bin" 2>/dev/null; then
-	fail "staged and changed modes must be mutually exclusive"
+    --repo "$repo" \
+    --staged \
+    --changed \
+    --base "$base_commit" \
+    --head "$head_commit" \
+    --kind any >"$FIXTURE/conflicting-staged-changed.bin" 2>/dev/null; then
+    fail "staged and changed modes must be mutually exclusive"
 fi
 
 printf 'PASS: quality gate targets\n'

@@ -34,7 +34,19 @@ includes = [
 
 [formatter.shfmt]
 command = "shfmt"
-options = ["-w"]
+options = [
+  "-ln",
+  "auto",
+  "-i",
+  "4",
+  "-bn=false",
+  "-ci=false",
+  "-sr=false",
+  "-kp=false",
+  "-fn=false",
+  "--apply-ignore=false",
+  "-w",
+]
 excludes = ["config/zsh/**"]
 includes = ["*.sh"]
 

@@ -25,25 +25,25 @@ git -C "$TMP" init -q
 git -C "$TMP" add -A
 
 if out="$("$CHECK" --all --repo "$TMP")"; then
-	echo "FAIL: expected non-zero exit for violations" >&2
-	echo "$out" >&2
-	exit 1
+    echo "FAIL: expected non-zero exit for violations" >&2
+    echo "$out" >&2
+    exit 1
 fi
 
 printf '%s\n' "$out" | grep -qF 'scripts/workflow/bad.sh:2:' || {
-	echo "FAIL: missing \"\$@\" | tee violation" >&2
-	echo "$out" >&2
-	exit 1
+    echo "FAIL: missing \"\$@\" | tee violation" >&2
+    echo "$out" >&2
+    exit 1
 }
 printf '%s\n' "$out" | grep -qF 'scripts/workflow/bad.sh:3:' || {
-	echo "FAIL: missing codex_bin tee violation" >&2
-	echo "$out" >&2
-	exit 1
+    echo "FAIL: missing codex_bin tee violation" >&2
+    echo "$out" >&2
+    exit 1
 }
 if printf '%s\n' "$out" | grep -qF 'good.sh'; then
-	echo "FAIL: compliant file was flagged" >&2
-	echo "$out" >&2
-	exit 1
+    echo "FAIL: compliant file was flagged" >&2
+    echo "$out" >&2
+    exit 1
 fi
 
 echo "PASS: llm-cli-stream-check"

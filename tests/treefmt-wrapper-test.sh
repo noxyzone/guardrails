@@ -5,38 +5,38 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$ROOT_DIR/scripts/treefmt-check.sh"
 
 if ! rg -q 'TREEFMT_TIMEOUT_SECONDS:-60' "$SCRIPT"; then
-	echo "FAIL: treefmt-check.sh must use the shared 60s default timeout" >&2
-	exit 1
+    echo "FAIL: treefmt-check.sh must use the shared 60s default timeout" >&2
+    exit 1
 fi
 
 if ! rg -q 'treefmt_walk="git"' "$SCRIPT" || ! rg -q 'treefmt_walk="filesystem"' "$SCRIPT"; then
-	echo "FAIL: treefmt-check.sh must use filesystem walking for explicit file paths" >&2
-	exit 1
+    echo "FAIL: treefmt-check.sh must use filesystem walking for explicit file paths" >&2
+    exit 1
 fi
 
 if ! rg -q 'treefmt_command=\(' "$SCRIPT" ||
-	! rg -q -- "--tree-root \"\\\$repo_root\"" "$SCRIPT" ||
-	! rg -q -- "--walk \"\\\$treefmt_walk\"" "$SCRIPT" ||
-	! rg -q -- "--excludes 'node_modules/\\*\\*'" "$SCRIPT" ||
-	! rg -q -- "--excludes '\\.guardrails/\\*\\*'" "$SCRIPT"; then
-	echo "FAIL: treefmt-check.sh must pin treefmt root and exclude generated dependency trees" >&2
-	exit 1
+    ! rg -q -- "--tree-root \"\\\$repo_root\"" "$SCRIPT" ||
+    ! rg -q -- "--walk \"\\\$treefmt_walk\"" "$SCRIPT" ||
+    ! rg -q -- "--excludes 'node_modules/\\*\\*'" "$SCRIPT" ||
+    ! rg -q -- "--excludes '\\.guardrails/\\*\\*'" "$SCRIPT"; then
+    echo "FAIL: treefmt-check.sh must pin treefmt root and exclude generated dependency trees" >&2
+    exit 1
 fi
 
 if ! rg -q 'treefmt_command\+=\(--ci\)' "$SCRIPT" ||
-	! rg -q 'run_with_timeout "\$treefmt_timeout_seconds" "\$\{treefmt_command\[@\]\}"' "$SCRIPT"; then
-	echo "FAIL: treefmt-check.sh must pin CI root and exclude generated dependency trees" >&2
-	exit 1
+    ! rg -q 'run_with_timeout "\$treefmt_timeout_seconds" "\$\{treefmt_command\[@\]\}"' "$SCRIPT"; then
+    echo "FAIL: treefmt-check.sh must pin CI root and exclude generated dependency trees" >&2
+    exit 1
 fi
 
 if ! rg -q "git diff --shortstat >&2" "$SCRIPT" || rg -q "git diff -- >&2" "$SCRIPT"; then
-	echo "FAIL: treefmt-check.sh must summarize formatter failures without printing diff contents" >&2
-	exit 1
+    echo "FAIL: treefmt-check.sh must summarize formatter failures without printing diff contents" >&2
+    exit 1
 fi
 
 if ! rg -q 'mktemp "\$\{TMPDIR:-/tmp\}/treefmt-runtime\.XXXXXX\.toml"' "$SCRIPT"; then
-	echo "FAIL: treefmt-check.sh must keep generated treefmt config outside the repo tree" >&2
-	exit 1
+    echo "FAIL: treefmt-check.sh must keep generated treefmt config outside the repo tree" >&2
+    exit 1
 fi
 
 FIXTURE="$(mktemp -d)"
@@ -44,26 +44,38 @@ trap 'rm -rf "$FIXTURE"' EXIT
 mkdir -p "$FIXTURE/guardrails/scripts" "$FIXTURE/bin" "$FIXTURE/repo"
 ln -s "$SCRIPT" "$FIXTURE/guardrails/scripts/treefmt-check.sh"
 printf '%s\n' \
-	'[formatter.prettier]' \
-	'command = "prettier"' \
-	'options = ["--config", ".guardrails/prettier.cjs", "--write"]' \
-	'' \
-	'[formatter.shfmt]' \
-	'command = "shfmt"' \
-	'options = ["-w"]' \
-	'' \
-	'[formatter.ruff]' \
-	'command = "ruff"' \
-	'options = ["format"]' \
-	'' \
-	'[formatter.taplo]' \
-	'command = "taplo"' \
-	'options = ["format"]' \
-	'' \
-	'[formatter.swiftformat]' \
-	'command = "swiftformat"' \
-	'options = ["--config", ".guardrails/.swiftformat"]' \
-	>"$FIXTURE/guardrails/treefmt.toml"
+    '[formatter.prettier]' \
+    'command = "prettier"' \
+    'options = ["--config", ".guardrails/prettier.cjs", "--write"]' \
+    '' \
+    '[formatter.shfmt]' \
+    'command = "shfmt"' \
+    'options = [' \
+    '  "-ln",' \
+    '  "auto",' \
+    '  "-i",' \
+    '  "4",' \
+    '  "-bn=false",' \
+    '  "-ci=false",' \
+    '  "-sr=false",' \
+    '  "-kp=false",' \
+    '  "-fn=false",' \
+    '  "--apply-ignore=false",' \
+    '  "-w",' \
+    ']' \
+    '' \
+    '[formatter.ruff]' \
+    'command = "ruff"' \
+    'options = ["format"]' \
+    '' \
+    '[formatter.taplo]' \
+    'command = "taplo"' \
+    'options = ["format"]' \
+    '' \
+    '[formatter.swiftformat]' \
+    'command = "swiftformat"' \
+    'options = ["--config", ".guardrails/.swiftformat"]' \
+    >"$FIXTURE/guardrails/treefmt.toml"
 printf 'module.exports = {};\n' >"$FIXTURE/guardrails/prettier.cjs"
 printf '%s\n' '--swiftversion 6.0' >"$FIXTURE/guardrails/.swiftformat"
 
@@ -91,14 +103,14 @@ FAILING_FILTER
 chmod +x "$FIXTURE/bin/treefmt" "$FIXTURE/guardrails/scripts/quality-gate-path-filter.sh"
 
 if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
-	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-	"$FIXTURE/guardrails/scripts/treefmt-check.sh" --repo "$FIXTURE/repo" >/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh accepted a failing path filter" >&2
-	exit 1
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
+    "$FIXTURE/guardrails/scripts/treefmt-check.sh" --repo "$FIXTURE/repo" >/dev/null 2>&1; then
+    echo "FAIL: treefmt-check.sh accepted a failing path filter" >&2
+    exit 1
 fi
 if [[ -e "$FIXTURE/treefmt-invoked" ]]; then
-	echo "FAIL: treefmt-check.sh invoked treefmt after the path filter failed" >&2
-	exit 1
+    echo "FAIL: treefmt-check.sh invoked treefmt after the path filter failed" >&2
+    exit 1
 fi
 
 cat >"$FIXTURE/guardrails/scripts/quality-gate-path-filter.sh" <<'EMPTY_FILTER'
@@ -108,46 +120,46 @@ exit 0
 EMPTY_FILTER
 rm "$FIXTURE/guardrails/prettier.cjs"
 if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
-	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-	"$FIXTURE/guardrails/scripts/treefmt-check.sh" --repo "$FIXTURE/repo" >/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh accepted a missing required asset" >&2
-	exit 1
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
+    "$FIXTURE/guardrails/scripts/treefmt-check.sh" --repo "$FIXTURE/repo" >/dev/null 2>&1; then
+    echo "FAIL: treefmt-check.sh accepted a missing required asset" >&2
+    exit 1
 fi
 if [[ -e "$FIXTURE/repo/.guardrails" ]]; then
-	echo "FAIL: treefmt-check.sh left an incomplete guardrails directory" >&2
-	exit 1
+    echo "FAIL: treefmt-check.sh left an incomplete guardrails directory" >&2
+    exit 1
 fi
 
 printf 'module.exports = {};\n' >"$FIXTURE/guardrails/prettier.cjs"
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
-	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
-	--repo "$FIXTURE/repo" >/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh rejected an empty explicit path list" >&2
-	exit 1
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
+    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    --repo "$FIXTURE/repo" >/dev/null 2>&1; then
+    echo "FAIL: treefmt-check.sh rejected an empty explicit path list" >&2
+    exit 1
 fi
 if [[ ! -e "$FIXTURE/treefmt-invoked" ]]; then
-	echo "FAIL: treefmt-check.sh did not invoke treefmt for the repository default" >&2
-	exit 1
+    echo "FAIL: treefmt-check.sh did not invoke treefmt for the repository default" >&2
+    exit 1
 fi
 
 : >"$FIXTURE/treefmt-args"
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
-	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-	TREEFMT_ARGS_CAPTURE="$FIXTURE/treefmt-args" \
-	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
-	--repo "$FIXTURE/repo" -- --write --check --repo reserved-path \
-	>/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh rejected reserved-word paths after --" >&2
-	exit 1
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
+    TREEFMT_ARGS_CAPTURE="$FIXTURE/treefmt-args" \
+    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    --repo "$FIXTURE/repo" -- --write --check --repo reserved-path \
+    >/dev/null 2>&1; then
+    echo "FAIL: treefmt-check.sh rejected reserved-word paths after --" >&2
+    exit 1
 fi
 if ! rg -Fxq -- '--ci' "$FIXTURE/treefmt-args" ||
-	! rg -Fxq -- '--write' "$FIXTURE/treefmt-args" ||
-	! rg -Fxq -- '--check' "$FIXTURE/treefmt-args" ||
-	! rg -Fxq -- '--repo' "$FIXTURE/treefmt-args" ||
-	! rg -Fxq -- 'reserved-path' "$FIXTURE/treefmt-args"; then
-	echo "FAIL: treefmt-check.sh reinterpreted reserved-word paths after --" >&2
-	exit 1
+    ! rg -Fxq -- '--write' "$FIXTURE/treefmt-args" ||
+    ! rg -Fxq -- '--check' "$FIXTURE/treefmt-args" ||
+    ! rg -Fxq -- '--repo' "$FIXTURE/treefmt-args" ||
+    ! rg -Fxq -- 'reserved-path' "$FIXTURE/treefmt-args"; then
+    echo "FAIL: treefmt-check.sh reinterpreted reserved-word paths after --" >&2
+    exit 1
 fi
 
 git -C "$FIXTURE/repo" init -q
@@ -160,48 +172,48 @@ fixture_commit="$(printf 'initial\n' | git -C "$FIXTURE/repo" commit-tree "$fixt
 git -C "$FIXTURE/repo" update-ref HEAD "$fixture_commit"
 printf 'sensitive-fixture-value\n' >"$FIXTURE/repo/sensitive.txt"
 if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
-	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" TREEFMT_EXIT_STATUS=23 \
-	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
-	--repo "$FIXTURE/repo" >"$FIXTURE/treefmt-failure.stdout" \
-	2>"$FIXTURE/treefmt-failure.stderr"; then
-	echo "FAIL: treefmt-check.sh accepted a formatter failure" >&2
-	exit 1
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" TREEFMT_EXIT_STATUS=23 \
+    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    --repo "$FIXTURE/repo" >"$FIXTURE/treefmt-failure.stdout" \
+    2>"$FIXTURE/treefmt-failure.stderr"; then
+    echo "FAIL: treefmt-check.sh accepted a formatter failure" >&2
+    exit 1
 fi
 if rg -Fq 'sensitive-fixture-value' "$FIXTURE/treefmt-failure.stderr"; then
-	echo "FAIL: treefmt-check.sh exposed repository diff contents" >&2
-	exit 1
+    echo "FAIL: treefmt-check.sh exposed repository diff contents" >&2
+    exit 1
 fi
 if ! rg -Fq '1 file changed' "$FIXTURE/treefmt-failure.stderr"; then
-	echo "FAIL: treefmt-check.sh omitted the safe repository diff summary" >&2
-	exit 1
+    echo "FAIL: treefmt-check.sh omitted the safe repository diff summary" >&2
+    exit 1
 fi
 git -C "$FIXTURE/repo" checkout -q -- sensitive.txt
 if ! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/prettier.cjs\", \"--check\"]" \
-	"$FIXTURE/config-capture.toml" ||
-	rg -Fq -- '"--write"' "$FIXTURE/config-capture.toml" ||
-	! rg -Fq 'options = ["-d"]' "$FIXTURE/config-capture.toml" ||
-	! rg -Fq 'options = ["format", "--check"]' "$FIXTURE/config-capture.toml" ||
-	! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/.swiftformat\", \"--lint\"]" \
-		"$FIXTURE/config-capture.toml"; then
-	echo "FAIL: treefmt-check.sh did not use check-only formatter settings" >&2
-	exit 1
+    "$FIXTURE/config-capture.toml" ||
+    rg -Fq -- '"--write"' "$FIXTURE/config-capture.toml" ||
+    ! rg -Fq '  "-d",' "$FIXTURE/config-capture.toml" ||
+    ! rg -Fq 'options = ["format", "--check"]' "$FIXTURE/config-capture.toml" ||
+    ! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/.swiftformat\", \"--lint\"]" \
+        "$FIXTURE/config-capture.toml"; then
+    echo "FAIL: treefmt-check.sh did not use check-only formatter settings" >&2
+    exit 1
 fi
 
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
-	TREEFMT_CONFIG_CAPTURE="$FIXTURE/write-config-capture.toml" \
-	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
-	--write --repo "$FIXTURE/repo" >/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh rejected write mode" >&2
-	exit 1
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/write-config-capture.toml" \
+    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    --write --repo "$FIXTURE/repo" >/dev/null 2>&1; then
+    echo "FAIL: treefmt-check.sh rejected write mode" >&2
+    exit 1
 fi
 if ! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/prettier.cjs\", \"--write\"]" \
-	"$FIXTURE/write-config-capture.toml" ||
-	! rg -Fq 'options = ["-w"]' "$FIXTURE/write-config-capture.toml" ||
-	! rg -Fq 'options = ["format"]' "$FIXTURE/write-config-capture.toml" ||
-	! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/.swiftformat\"]" \
-		"$FIXTURE/write-config-capture.toml"; then
-	echo "FAIL: treefmt-check.sh did not preserve formatter write settings" >&2
-	exit 1
+    "$FIXTURE/write-config-capture.toml" ||
+    ! rg -Fq '  "-w",' "$FIXTURE/write-config-capture.toml" ||
+    ! rg -Fq 'options = ["format"]' "$FIXTURE/write-config-capture.toml" ||
+    ! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/.swiftformat\"]" \
+        "$FIXTURE/write-config-capture.toml"; then
+    echo "FAIL: treefmt-check.sh did not preserve formatter write settings" >&2
+    exit 1
 fi
 
 mkdir -p "$FIXTURE/repo/.guardrails"
@@ -210,72 +222,74 @@ printf 'existing prettier\n' >"$FIXTURE/repo/.guardrails/prettier.cjs"
 printf 'existing swiftformat\n' >"$FIXTURE/repo/.guardrails/.swiftformat"
 printf 'existing editorconfig\n' >"$FIXTURE/repo/.editorconfig"
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
-	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
-	--repo "$FIXTURE/repo" >/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh rejected an existing guardrails checkout" >&2
-	exit 1
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
+    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    --repo "$FIXTURE/repo" >/dev/null 2>&1; then
+    echo "FAIL: treefmt-check.sh rejected an existing guardrails checkout" >&2
+    exit 1
 fi
 if [[ "$(<"$FIXTURE/repo/.guardrails/treefmt.toml")" != "existing treefmt" ]] ||
-	[[ "$(<"$FIXTURE/repo/.guardrails/prettier.cjs")" != "existing prettier" ]] ||
-	[[ "$(<"$FIXTURE/repo/.guardrails/.swiftformat")" != "existing swiftformat" ]] ||
-	[[ "$(<"$FIXTURE/repo/.editorconfig")" != "existing editorconfig" ]]; then
-	echo "FAIL: treefmt-check.sh modified an existing repository configuration" >&2
-	exit 1
+    [[ "$(<"$FIXTURE/repo/.guardrails/prettier.cjs")" != "existing prettier" ]] ||
+    [[ "$(<"$FIXTURE/repo/.guardrails/.swiftformat")" != "existing swiftformat" ]] ||
+    [[ "$(<"$FIXTURE/repo/.editorconfig")" != "existing editorconfig" ]]; then
+    echo "FAIL: treefmt-check.sh modified an existing repository configuration" >&2
+    exit 1
 fi
 rm -rf "$FIXTURE/repo/.guardrails"
 rm "$FIXTURE/repo/.editorconfig"
 
 ln -s missing-guardrails "$FIXTURE/repo/.guardrails"
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
-	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
-	--repo "$FIXTURE/repo" >/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh rejected an unrelated broken repo-local guardrails symlink" >&2
-	exit 1
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
+    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    --repo "$FIXTURE/repo" >/dev/null 2>&1; then
+    echo "FAIL: treefmt-check.sh rejected an unrelated broken repo-local guardrails symlink" >&2
+    exit 1
 fi
 if [[ ! -L "$FIXTURE/repo/.guardrails" ]] ||
-	[[ "$(readlink "$FIXTURE/repo/.guardrails")" != "missing-guardrails" ]]; then
-	echo "FAIL: treefmt-check.sh modified a broken repo-local guardrails symlink" >&2
-	exit 1
+    [[ "$(readlink "$FIXTURE/repo/.guardrails")" != "missing-guardrails" ]]; then
+    echo "FAIL: treefmt-check.sh modified a broken repo-local guardrails symlink" >&2
+    exit 1
 fi
 rm "$FIXTURE/repo/.guardrails"
 
 ln -s ../outside-editorconfig "$FIXTURE/repo/.editorconfig"
-if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
-	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-	/bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
-	--repo "$FIXTURE/repo" >/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh accepted a dangling repository editorconfig symlink" >&2
-	exit 1
+if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
+    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    --repo "$FIXTURE/repo" >/dev/null 2>&1; then
+    echo "FAIL: treefmt-check.sh rejected an unrelated dangling editorconfig symlink" >&2
+    exit 1
 fi
 if [[ ! -L "$FIXTURE/repo/.editorconfig" ]] ||
-	[[ -e "$FIXTURE/outside-editorconfig" ]]; then
-	echo "FAIL: treefmt-check.sh wrote through a dangling repository editorconfig symlink" >&2
-	exit 1
+    [[ -e "$FIXTURE/outside-editorconfig" ]]; then
+    echo "FAIL: treefmt-check.sh modified a dangling repository editorconfig symlink" >&2
+    exit 1
 fi
 rm "$FIXTURE/repo/.editorconfig"
 
-if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
-	TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-	/bin/bash -c '
-		printf() {
-			if [[ "$#" == 2 && "$1" == "%s\n" && "$2" == "root = true" ]]; then
-				builtin printf "$@"
-				return 23
-			fi
-			builtin printf "$@"
-		}
-		source "$1" --repo "$2"
-	' _ "$FIXTURE/guardrails/scripts/treefmt-check.sh" "$FIXTURE/repo" \
-	>/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh accepted an incomplete editorconfig write" >&2
-	exit 1
-fi
-if [[ -e "$FIXTURE/repo/.editorconfig" ]]; then
-	echo "FAIL: treefmt-check.sh left a partial editorconfig after write failure" >&2
-	exit 1
-fi
+# shfmtの全EditorConfig対応オプションを明示しているため、repo内・親/home相当の
+# EditorConfigの有無や競合にかかわらず、実走結果は4スペースになる。
+SHFMT_FIXTURES="$FIXTURE/shfmt-fixtures"
+mkdir -p \
+    "$SHFMT_FIXTURES/no-editorconfig" \
+    "$SHFMT_FIXTURES/local-conflict" \
+    "$SHFMT_FIXTURES/home-conflict/repo"
+printf '%s\n' 'root = true' '' '[*.sh]' 'indent_style = tab' 'binary_next_line = true' \
+    >"$SHFMT_FIXTURES/local-conflict/.editorconfig"
+printf '%s\n' 'root = true' '' '[*.sh]' 'indent_style = tab' 'switch_case_indent = true' \
+    >"$SHFMT_FIXTURES/home-conflict/.editorconfig"
+for shfmt_repo in \
+    "$SHFMT_FIXTURES/no-editorconfig" \
+    "$SHFMT_FIXTURES/local-conflict" \
+    "$SHFMT_FIXTURES/home-conflict/repo"; do
+    printf '%s\n' 'if true; then' 'echo hi' 'fi' >"$shfmt_repo/fixture.sh"
+    HOME="$SHFMT_FIXTURES/home-conflict" "$SCRIPT" --write --repo "$shfmt_repo" -- fixture.sh >/dev/null
+    if [[ "$(<"$shfmt_repo/fixture.sh")" != $'if true; then\n    echo hi\nfi' ]]; then
+        echo "FAIL: shfmt output changed because of EditorConfig discovery: $shfmt_repo" >&2
+        exit 1
+    fi
+done
 
 # treefmt --ci only fails after formatters report a change; it does not prevent
 # formatter-specific write flags. A real formatter run must therefore leave an
@@ -293,13 +307,13 @@ git -C "$CHECK_ONLY_REPO" add unformatted.json
 git -C "$CHECK_ONLY_REPO" commit -qm initial
 check_only_before="$(cat "$CHECK_ONLY_REPO/unformatted.json")"
 if "$SCRIPT" --check --repo "$CHECK_ONLY_REPO" >/dev/null 2>&1; then
-	echo "FAIL: treefmt-check.sh accepted unformatted input in check mode" >&2
-	exit 1
+    echo "FAIL: treefmt-check.sh accepted unformatted input in check mode" >&2
+    exit 1
 fi
 if [[ "$(cat "$CHECK_ONLY_REPO/unformatted.json")" != "$check_only_before" ]] ||
-	! git -C "$CHECK_ONLY_REPO" diff --quiet -- unformatted.json; then
-	echo "FAIL: treefmt-check.sh modified a tracked file in check mode" >&2
-	exit 1
+    ! git -C "$CHECK_ONLY_REPO" diff --quiet -- unformatted.json; then
+    echo "FAIL: treefmt-check.sh modified a tracked file in check mode" >&2
+    exit 1
 fi
 
 echo "PASS"

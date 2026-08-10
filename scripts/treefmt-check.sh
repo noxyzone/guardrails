@@ -2,14 +2,13 @@
 set -euo pipefail
 
 fail() {
-	printf 'error: %s\n' "$*" >&2
-	exit 1
+    printf 'error: %s\n' "$*" >&2
+    exit 1
 }
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 guardrails_dir="$(cd "$script_dir/.." && pwd)"
 repo_root="."
-created_editorconfig=0
 treefmt_exclusions_path=""
 treefmt_config_path=""
 treefmt_mode="check"
@@ -20,126 +19,115 @@ treefmt_walk="git"
 treefmt_exclude_args=()
 
 while [[ "$#" -gt 0 ]]; do
-	case "$1" in
-	--check)
-		treefmt_mode="check"
-		;;
-	--write)
-		treefmt_mode="write"
-		;;
-	--without-swiftformat)
-		treefmt_without_swiftformat=1
-		;;
-	--repo)
-		[[ "$#" -ge 2 ]] || fail "--repo requires a path"
-		repo_root="$2"
-		shift
-		;;
-	--)
-		shift
-		treefmt_args+=("$@")
-		break
-		;;
-	*)
-		treefmt_args+=("$1")
-		;;
-	esac
-	shift
+    case "$1" in
+    --check)
+        treefmt_mode="check"
+        ;;
+    --write)
+        treefmt_mode="write"
+        ;;
+    --without-swiftformat)
+        treefmt_without_swiftformat=1
+        ;;
+    --repo)
+        [[ "$#" -ge 2 ]] || fail "--repo requires a path"
+        repo_root="$2"
+        shift
+        ;;
+    --)
+        shift
+        treefmt_args+=("$@")
+        break
+        ;;
+    *)
+        treefmt_args+=("$1")
+        ;;
+    esac
+    shift
 done
 
 if [[ "${#treefmt_args[@]}" -gt 0 ]]; then
-	treefmt_walk="filesystem"
+    treefmt_walk="filesystem"
 fi
 
 repo_root="$(cd "$repo_root" && pwd)"
 
 cleanup() {
-	if [[ -n "$treefmt_exclusions_path" ]]; then
-		rm -f "$treefmt_exclusions_path"
-	fi
-	if [[ -n "$treefmt_config_path" ]]; then
-		rm -f "$treefmt_config_path"
-	fi
-	if [[ "$created_editorconfig" == 1 ]]; then
-		rm "$repo_root/.editorconfig"
-	fi
+    if [[ -n "$treefmt_exclusions_path" ]]; then
+        rm -f "$treefmt_exclusions_path"
+    fi
+    if [[ -n "$treefmt_config_path" ]]; then
+        rm -f "$treefmt_config_path"
+    fi
 }
 trap cleanup EXIT
 
 for required_asset in treefmt.toml prettier.cjs .swiftformat; do
-	if [[ ! -f "$guardrails_dir/$required_asset" ]]; then
-		fail "required guardrails asset not found: $guardrails_dir/$required_asset"
-	fi
+    if [[ ! -f "$guardrails_dir/$required_asset" ]]; then
+        fail "required guardrails asset not found: $guardrails_dir/$required_asset"
+    fi
 done
 
 treefmt_exclusions_path="$(mktemp "${TMPDIR:-/tmp}/treefmt-excludes.XXXXXX")"
 if ! "$script_dir/quality-gate-path-filter.sh" --repo "$repo_root" --treefmt-excludes >"$treefmt_exclusions_path"; then
-	fail "quality gate path filter failed"
+    fail "quality gate path filter failed"
 fi
 while IFS= read -r exclusion; do
-	treefmt_exclude_args+=(--excludes "$exclusion")
+    treefmt_exclude_args+=(--excludes "$exclusion")
 done <"$treefmt_exclusions_path"
 
 if ! command -v treefmt >/dev/null; then
-	fail "treefmt is not installed"
+    fail "treefmt is not installed"
 fi
 
 case "$treefmt_timeout_seconds" in
 '' | *[!0-9]*)
-	fail "TREEFMT_TIMEOUT_SECONDS must be a positive integer"
-	;;
+    fail "TREEFMT_TIMEOUT_SECONDS must be a positive integer"
+    ;;
 0)
-	fail "TREEFMT_TIMEOUT_SECONDS must be greater than 0"
-	;;
+    fail "TREEFMT_TIMEOUT_SECONDS must be greater than 0"
+    ;;
 esac
 
 run_with_timeout() {
-	local timeout_seconds="$1"
-	local timeout_marker
-	local command_pid
-	local watchdog_pid
-	local status
+    local timeout_seconds="$1"
+    local timeout_marker
+    local command_pid
+    local watchdog_pid
+    local status
 
-	shift
-	timeout_marker="$(mktemp "${TMPDIR:-/tmp}/treefmt-timeout.XXXXXX")"
-	rm -f "$timeout_marker"
+    shift
+    timeout_marker="$(mktemp "${TMPDIR:-/tmp}/treefmt-timeout.XXXXXX")"
+    rm -f "$timeout_marker"
 
-	"$@" &
-	command_pid="$!"
-	(
-		sleep "$timeout_seconds"
-		if kill -0 "$command_pid" 2>/dev/null; then
-			: >"$timeout_marker"
-			kill "$command_pid" 2>/dev/null || true
-			sleep 1
-			kill -9 "$command_pid" 2>/dev/null || true
-		fi
-	) &
-	watchdog_pid="$!"
+    "$@" &
+    command_pid="$!"
+    (
+        sleep "$timeout_seconds"
+        if kill -0 "$command_pid" 2>/dev/null; then
+            : >"$timeout_marker"
+            kill "$command_pid" 2>/dev/null || true
+            sleep 1
+            kill -9 "$command_pid" 2>/dev/null || true
+        fi
+    ) &
+    watchdog_pid="$!"
 
-	if wait "$command_pid"; then
-		status=0
-	else
-		status="$?"
-	fi
-	kill "$watchdog_pid" 2>/dev/null || true
-	wait "$watchdog_pid" 2>/dev/null || true
+    if wait "$command_pid"; then
+        status=0
+    else
+        status="$?"
+    fi
+    kill "$watchdog_pid" 2>/dev/null || true
+    wait "$watchdog_pid" 2>/dev/null || true
 
-	if [[ -e "$timeout_marker" ]]; then
-		rm -f "$timeout_marker"
-		fail "treefmt timed out after ${timeout_seconds}s"
-	fi
-	rm -f "$timeout_marker"
-	return "$status"
+    if [[ -e "$timeout_marker" ]]; then
+        rm -f "$timeout_marker"
+        fail "treefmt timed out after ${timeout_seconds}s"
+    fi
+    rm -f "$timeout_marker"
+    return "$status"
 }
-
-if [[ -L "$repo_root/.editorconfig" && ! -e "$repo_root/.editorconfig" ]]; then
-	fail "repository .editorconfig must not be a dangling symlink"
-fi
-if [[ ! -e "$repo_root/.editorconfig" ]]; then
-	created_editorconfig=1
-	printf '%s\n' 'root = true' >"$repo_root/.editorconfig"
-fi
 
 toml_guardrails_dir="${guardrails_dir//\\/\\\\}"
 toml_guardrails_dir="${toml_guardrails_dir//\"/\\\"}"
@@ -155,6 +143,9 @@ awk -v guardrails_dir="$toml_guardrails_dir" -v without_swiftformat="$treefmt_wi
     skip {
         next
     }
+    /^\[formatter\./ {
+        in_shfmt = ($0 == "[formatter.shfmt]")
+    }
     $0 == "options = [\"--config\", \".guardrails/prettier.cjs\", \"--write\"]" {
         if (treefmt_mode == "check") {
             printf "options = [\"--config\", \"%s/prettier.cjs\", \"--check\"]\n", guardrails_dir
@@ -163,8 +154,8 @@ awk -v guardrails_dir="$toml_guardrails_dir" -v without_swiftformat="$treefmt_wi
         }
         next
     }
-    $0 == "options = [\"-w\"]" && treefmt_mode == "check" {
-        print "options = [\"-d\"]"
+    in_shfmt && $0 == "  \"-w\"," && treefmt_mode == "check" {
+        print "  \"-d\","
         next
     }
     $0 == "options = [\"format\"]" && treefmt_mode == "check" {
@@ -187,32 +178,32 @@ awk -v guardrails_dir="$toml_guardrails_dir" -v without_swiftformat="$treefmt_wi
 cd "$repo_root"
 treefmt_command=(treefmt)
 if [[ "$treefmt_mode" == "check" ]]; then
-	treefmt_command+=(--ci)
+    treefmt_command+=(--ci)
 fi
 treefmt_command+=(
-	--tree-root "$repo_root"
-	--walk "$treefmt_walk"
-	--excludes 'node_modules/**'
-	--excludes '.guardrails/**'
+    --tree-root "$repo_root"
+    --walk "$treefmt_walk"
+    --excludes 'node_modules/**'
+    --excludes '.guardrails/**'
 )
 if [[ "${#treefmt_exclude_args[@]}" -gt 0 ]]; then
-	treefmt_command+=("${treefmt_exclude_args[@]}")
+    treefmt_command+=("${treefmt_exclude_args[@]}")
 fi
 treefmt_command+=(--config-file "$treefmt_config_path")
 if [[ "${#treefmt_args[@]}" -gt 0 ]]; then
-	# 先頭がハイフンのファイル名をoptionとして解釈させないため、必ず--で終端する。
-	treefmt_command+=(--)
-	treefmt_command+=("${treefmt_args[@]}")
+    # 先頭がハイフンのファイル名をoptionとして解釈させないため、必ず--で終端する。
+    treefmt_command+=(--)
+    treefmt_command+=("${treefmt_args[@]}")
 fi
 
 if [[ "$treefmt_mode" == "write" ]]; then
-	run_with_timeout "$treefmt_timeout_seconds" "${treefmt_command[@]}"
+    run_with_timeout "$treefmt_timeout_seconds" "${treefmt_command[@]}"
 else
-	if ! run_with_timeout "$treefmt_timeout_seconds" "${treefmt_command[@]}"; then
-		if command -v git >/dev/null && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-			printf '%s\n' '[treefmt] formatter check failed; repository diff summary:' >&2
-			git diff --shortstat >&2 || true
-		fi
-		exit 1
-	fi
+    if ! run_with_timeout "$treefmt_timeout_seconds" "${treefmt_command[@]}"; then
+        if command -v git >/dev/null && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            printf '%s\n' '[treefmt] formatter check failed; repository diff summary:' >&2
+            git diff --shortstat >&2 || true
+        fi
+        exit 1
+    fi
 fi

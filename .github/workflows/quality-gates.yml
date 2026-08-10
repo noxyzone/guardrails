@@ -155,8 +155,8 @@ jobs:
           set -euo pipefail
 
           treefmt_tmp="$(mktemp -d)"
-          gh release download v2.3.0 --repo numtide/treefmt --pattern treefmt_2.3.0_linux_amd64.tar.gz --output "$treefmt_tmp/treefmt.tar.gz"
-          printf '%s  %s\n' '5d3ad279590f1c29c0e6b409dc2a6ce24ad4439e267be8eb0e4e671aed6c02a8' "$treefmt_tmp/treefmt.tar.gz" | sha256sum --check --strict
+          gh release download v2.5.0 --repo numtide/treefmt --pattern treefmt_2.5.0_linux_amd64.tar.gz --output "$treefmt_tmp/treefmt.tar.gz"
+          printf '%s  %s\n' '95f707bf9666d08b50888b116768fd77f042ad5af92aa3b795f063160e72758f' "$treefmt_tmp/treefmt.tar.gz" | sha256sum --check --strict
           tar xzf "$treefmt_tmp/treefmt.tar.gz" -C "$treefmt_tmp"
           sudo install "$treefmt_tmp/treefmt" /usr/local/bin/treefmt
           gh release download v3.13.1 --repo mvdan/sh --pattern shfmt_v3.13.1_linux_amd64 --output shfmt

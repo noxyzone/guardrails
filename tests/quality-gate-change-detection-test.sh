@@ -29,38 +29,38 @@ head_sha="$(printf 'special names\n' | git -C "$FIXTURE" commit-tree "$head_tree
 
 output="$FIXTURE/outputs.txt"
 "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
-	--repo "$FIXTURE" \
-	--changed \
-	--base "$base_sha" \
-	--head "$head_sha" \
-	--range-mode direct \
-	--output "$output"
+    --repo "$FIXTURE" \
+    --changed \
+    --base "$base_sha" \
+    --head "$head_sha" \
+    --range-mode direct \
+    --output "$output"
 
 for expected in \
-	'any=true' \
-	'ast_grep=true' \
-	'eslint=true' \
-	'localization=true' \
-	'markdownlint=true' \
-	'shell=true' \
-	'swift=true' \
-	'text_spacing=true' \
-	'treefmt_non_swift=true' \
-	'ubuntu=true'; do
-	if ! grep -Fxq -- "$expected" "$output"; then
-		printf 'FAIL: missing output %s\n' "$expected" >&2
-		exit 1
-	fi
+    'any=true' \
+    'ast_grep=true' \
+    'eslint=true' \
+    'localization=true' \
+    'markdownlint=true' \
+    'shell=true' \
+    'swift=true' \
+    'text_spacing=true' \
+    'treefmt_non_swift=true' \
+    'ubuntu=true'; do
+    if ! grep -Fxq -- "$expected" "$output"; then
+        printf 'FAIL: missing output %s\n' "$expected" >&2
+        exit 1
+    fi
 done
 
 fallback_output="$FIXTURE/fallback-outputs.txt"
 "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
-	--repo "$FIXTURE" \
-	--all \
-	--output "$fallback_output"
+    --repo "$FIXTURE" \
+    --all \
+    --output "$fallback_output"
 if ! grep -Fxq 'swift=true' "$fallback_output" || ! grep -Fxq 'eslint=true' "$fallback_output"; then
-	printf 'FAIL: tracked-file fallback did not classify special names\n' >&2
-	exit 1
+    printf 'FAIL: tracked-file fallback did not classify special names\n' >&2
+    exit 1
 fi
 
 config_base_tree="$(git -C "$FIXTURE" write-tree)"
@@ -71,68 +71,68 @@ config_head_tree="$(git -C "$FIXTURE" write-tree)"
 config_head_commit="$(printf 'config head\n' | git -C "$FIXTURE" commit-tree "$config_head_tree" -p "$config_base_commit")"
 config_output="$FIXTURE/config-outputs.txt"
 "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
-	--repo "$FIXTURE" \
-	--changed \
-	--base "$config_base_commit" \
-	--head "$config_head_commit" \
-	--output "$config_output"
+    --repo "$FIXTURE" \
+    --changed \
+    --base "$config_base_commit" \
+    --head "$config_head_commit" \
+    --output "$config_output"
 if ! grep -Fxq 'swift=true' "$config_output"; then
-	printf 'FAIL: SwiftLint config changes must expand and enable the Swift gate\n' >&2
-	exit 1
+    printf 'FAIL: SwiftLint config changes must expand and enable the Swift gate\n' >&2
+    exit 1
 fi
 
 if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
-	--repo "$FIXTURE" \
-	--changed \
-	--base "$base_sha" \
-	--head "$head_sha" \
-	--range-mode invalid \
-	--output "$FIXTURE/invalid-range-mode.txt" 2>/dev/null; then
-	printf 'FAIL: invalid range mode was accepted\n' >&2
-	exit 1
+    --repo "$FIXTURE" \
+    --changed \
+    --base "$base_sha" \
+    --head "$head_sha" \
+    --range-mode invalid \
+    --output "$FIXTURE/invalid-range-mode.txt" 2>/dev/null; then
+    printf 'FAIL: invalid range mode was accepted\n' >&2
+    exit 1
 fi
 
 if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
-	--repo "$FIXTURE" \
-	--base "$base_sha" \
-	--head "$head_sha" \
-	--output "$FIXTURE/missing-scope-mode.txt" 2>/dev/null; then
-	printf 'FAIL: base and head were accepted without an explicit scope mode\n' >&2
-	exit 1
+    --repo "$FIXTURE" \
+    --base "$base_sha" \
+    --head "$head_sha" \
+    --output "$FIXTURE/missing-scope-mode.txt" 2>/dev/null; then
+    printf 'FAIL: base and head were accepted without an explicit scope mode\n' >&2
+    exit 1
 fi
 
 if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
-	--repo "$FIXTURE" \
-	--all \
-	--changed \
-	--output "$FIXTURE/all-with-changed.txt" 2>/dev/null; then
-	printf 'FAIL: all scope accepted changed mode\n' >&2
-	exit 1
+    --repo "$FIXTURE" \
+    --all \
+    --changed \
+    --output "$FIXTURE/all-with-changed.txt" 2>/dev/null; then
+    printf 'FAIL: all scope accepted changed mode\n' >&2
+    exit 1
 fi
 
 if "$ROOT_DIR/scripts/quality-gate-change-detection.sh" \
-	--repo "$FIXTURE" \
-	--all \
-	--range-mode direct \
-	--output "$FIXTURE/all-with-range-mode.txt" 2>/dev/null; then
-	printf 'FAIL: all scope accepted a range mode\n' >&2
-	exit 1
+    --repo "$FIXTURE" \
+    --all \
+    --range-mode direct \
+    --output "$FIXTURE/all-with-range-mode.txt" 2>/dev/null; then
+    printf 'FAIL: all scope accepted a range mode\n' >&2
+    exit 1
 fi
 
 for option in --repo --base --head --output --range-mode; do
-	missing_value_error="$FIXTURE/missing-value-${option#--}.txt"
-	set +e
-	"$ROOT_DIR/scripts/quality-gate-change-detection.sh" "$option" 2>"$missing_value_error"
-	status=$?
-	set -e
-	if [[ "$status" -ne 2 ]]; then
-		printf 'FAIL: missing value for %s exited with %s instead of 2\n' "$option" "$status" >&2
-		exit 1
-	fi
-	if ! grep -Fq 'usage: quality-gate-change-detection.sh' "$missing_value_error"; then
-		printf 'FAIL: missing value for %s did not show usage\n' "$option" >&2
-		exit 1
-	fi
+    missing_value_error="$FIXTURE/missing-value-${option#--}.txt"
+    set +e
+    "$ROOT_DIR/scripts/quality-gate-change-detection.sh" "$option" 2>"$missing_value_error"
+    status=$?
+    set -e
+    if [[ "$status" -ne 2 ]]; then
+        printf 'FAIL: missing value for %s exited with %s instead of 2\n' "$option" "$status" >&2
+        exit 1
+    fi
+    if ! grep -Fq 'usage: quality-gate-change-detection.sh' "$missing_value_error"; then
+        printf 'FAIL: missing value for %s did not show usage\n' "$option" >&2
+        exit 1
+    fi
 done
 
 printf 'PASS\n'
