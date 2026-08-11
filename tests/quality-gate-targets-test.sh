@@ -241,4 +241,21 @@ assert_null_paths "$actionlint_config_output" \
     ".github/workflows/renamed workflow.yml" \
     ".github/workflows/unchanged.yml"
 
+printf 'config-variables: null\n' >"$actionlint_repo/.github/actionlint.yml"
+git -C "$actionlint_repo" add -- .github/actionlint.yml
+actionlint_yml_tree="$(git -C "$actionlint_repo" write-tree)"
+actionlint_yml_commit="$(
+    printf 'nonstandard actionlint config\n' |
+        git -C "$actionlint_repo" commit-tree "$actionlint_yml_tree" -p "$actionlint_config_commit"
+)"
+actionlint_yml_output="$FIXTURE/actionlint-yml.bin"
+"$TARGETS" \
+    --repo "$actionlint_repo" \
+    --changed \
+    --base "$actionlint_config_commit" \
+    --head "$actionlint_yml_commit" \
+    --kind actionlint >"$actionlint_yml_output"
+[[ ! -s "$actionlint_yml_output" ]] ||
+    fail ".github/actionlint.yml must not expand scope without an explicit config-file contract"
+
 printf 'PASS: quality gate targets\n'

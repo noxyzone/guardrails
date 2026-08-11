@@ -144,7 +144,7 @@ write_all_paths() {
 is_scope_expansion_path() {
     local path="$1"
     case "$kind:$path" in
-    actionlint:.github/actionlint.yaml | actionlint:.github/actionlint.yml | \
+    actionlint:.github/actionlint.yaml | \
         ast_grep:sgconfig.yml | ast_grep:.sgconfig.yml | \
         eslint:eslint.config.* | eslint:.eslint* | \
         markdownlint:.markdownlintignore | markdownlint:.markdownlint-cli2.* | markdownlint:.markdownlint.json* | \
