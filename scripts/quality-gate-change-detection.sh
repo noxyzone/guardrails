@@ -112,6 +112,7 @@ has_targets() {
 }
 
 any="$(has_targets any)"
+actionlint="$(has_targets actionlint)"
 ast_grep="$(has_targets ast_grep)"
 eslint="$(has_targets eslint)"
 localization="$(has_targets localization)"
@@ -124,7 +125,7 @@ text_spacing="$(has_targets text_spacing)"
 treefmt_non_swift="$(has_targets treefmt_non_swift)"
 typos="$(has_targets typos)"
 ubuntu=false
-for needed in "$eslint" "$localization" "$markdownlint" "$ruff" "$secretlint" "$shell" "$text_spacing" "$treefmt_non_swift" "$typos"; do
+for needed in "$actionlint" "$eslint" "$localization" "$markdownlint" "$ruff" "$secretlint" "$shell" "$text_spacing" "$treefmt_non_swift" "$typos"; do
     if [[ "$needed" == true ]]; then
         ubuntu=true
     fi
@@ -132,6 +133,7 @@ done
 
 {
     printf 'any=%s\n' "$any"
+    printf 'actionlint=%s\n' "$actionlint"
     printf 'ast_grep=%s\n' "$ast_grep"
     printf 'eslint=%s\n' "$eslint"
     printf 'localization=%s\n' "$localization"

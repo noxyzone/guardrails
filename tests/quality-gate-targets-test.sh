@@ -185,4 +185,60 @@ if "$TARGETS" \
     fail "staged and changed modes must be mutually exclusive"
 fi
 
+actionlint_repo="$FIXTURE/actionlint-repo"
+mkdir -p "$actionlint_repo/.github/workflows"
+git -C "$actionlint_repo" init -q
+git -C "$actionlint_repo" config user.email fixture@example.invalid
+git -C "$actionlint_repo" config user.name Fixture
+printf 'name: Unchanged\non: push\njobs: {}\n' >"$actionlint_repo/.github/workflows/unchanged.yml"
+printf 'name: Delete\non: push\njobs: {}\n' >"$actionlint_repo/.github/workflows/delete.yaml"
+printf 'name: Rename\non: push\njobs: {}\n' >"$actionlint_repo/.github/workflows/rename.yml"
+printf 'name: Nested\non: push\njobs: {}\n' >"$actionlint_repo/.github/workflows/nested.yml"
+mkdir -p "$actionlint_repo/.github/workflows/nested"
+printf 'name: Out of scope\non: push\njobs: {}\n' >"$actionlint_repo/.github/workflows/nested/outside.yml"
+git -C "$actionlint_repo" add -- .
+actionlint_base_tree="$(git -C "$actionlint_repo" write-tree)"
+actionlint_base_commit="$(printf 'actionlint base\n' | git -C "$actionlint_repo" commit-tree "$actionlint_base_tree")"
+printf 'name: Changed\non: pull_request\njobs: {}\n' >"$actionlint_repo/.github/workflows/changed.yaml"
+git -C "$actionlint_repo" mv -- \
+    .github/workflows/rename.yml \
+    '.github/workflows/renamed workflow.yml'
+git -C "$actionlint_repo" update-index --force-remove .github/workflows/delete.yaml
+git -C "$actionlint_repo" add -- .github/workflows/changed.yaml '.github/workflows/renamed workflow.yml'
+actionlint_head_tree="$(git -C "$actionlint_repo" write-tree)"
+actionlint_head_commit="$(
+    printf 'actionlint head\n' |
+        git -C "$actionlint_repo" commit-tree "$actionlint_head_tree" -p "$actionlint_base_commit"
+)"
+actionlint_changed_output="$FIXTURE/actionlint-changed.bin"
+"$TARGETS" \
+    --repo "$actionlint_repo" \
+    --changed \
+    --base "$actionlint_base_commit" \
+    --head "$actionlint_head_commit" \
+    --kind actionlint >"$actionlint_changed_output"
+assert_null_paths "$actionlint_changed_output" \
+    ".github/workflows/changed.yaml" \
+    ".github/workflows/renamed workflow.yml"
+
+printf 'config-variables: null\n' >"$actionlint_repo/.github/actionlint.yaml"
+git -C "$actionlint_repo" add -- .github/actionlint.yaml
+actionlint_config_tree="$(git -C "$actionlint_repo" write-tree)"
+actionlint_config_commit="$(
+    printf 'actionlint config\n' |
+        git -C "$actionlint_repo" commit-tree "$actionlint_config_tree" -p "$actionlint_head_commit"
+)"
+actionlint_config_output="$FIXTURE/actionlint-config.bin"
+"$TARGETS" \
+    --repo "$actionlint_repo" \
+    --changed \
+    --base "$actionlint_head_commit" \
+    --head "$actionlint_config_commit" \
+    --kind actionlint >"$actionlint_config_output"
+assert_null_paths "$actionlint_config_output" \
+    ".github/workflows/changed.yaml" \
+    ".github/workflows/nested.yml" \
+    ".github/workflows/renamed workflow.yml" \
+    ".github/workflows/unchanged.yml"
+
 printf 'PASS: quality gate targets\n'

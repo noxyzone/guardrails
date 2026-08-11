@@ -129,6 +129,24 @@ for kind in markdownlint secretlint typos text_spacing treefmt_non_swift; do
     fi
 done
 
+mkdir -p "$fixture/.github/workflows" "$fixture/.github/workflows/nested"
+printf 'name: Project workflow\non: push\njobs: {}\n' >"$fixture/.github/workflows/project workflow.yml"
+printf 'name: Nested workflow\non: push\njobs: {}\n' >"$fixture/.github/workflows/nested/outside.yaml"
+git -C "$fixture" add -- .github/workflows
+actionlint_target_expected="$(
+    printf '%s\0' '.github/workflows/project workflow.yml' |
+        od -An -tx1 | tr -d ' \n'
+)"
+actionlint_target_actual="$(
+    "$TARGETS" --repo "$fixture" --staged --kind actionlint |
+        od -An -tx1 | tr -d ' \n'
+)"
+if [[ "$actionlint_target_actual" != "$actionlint_target_expected" ]]; then
+    printf 'FAIL: actionlint targets must include only direct workflow files with NUL-safe paths\nexpected: %s\nactual: %s\n' \
+        "$actionlint_target_expected" "$actionlint_target_actual" >&2
+    exit 1
+fi
+
 treefmt_excludes="$("$FILTER" --repo /tmp --treefmt-excludes)"
 # shellcheck disable=SC2041 # 単一要素のglob文字列リテラルであり、コマンド実行ではない
 for required_exclude in \
@@ -145,6 +163,7 @@ done
 # shellcheck disable=SC2016
 for required in \
     '.guardrails/scripts/quality-gate-targets.sh' \
+    'xargs -0 -r actionlint -shellcheck= -pyflakes=' \
     'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/secretlint"' \
     'xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/eslint"' \
     'xargs -0 -r shellcheck --' \

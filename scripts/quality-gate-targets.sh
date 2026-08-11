@@ -13,8 +13,8 @@ usage() {
 usage: quality-gate-targets.sh --repo PATH (--staged | --changed --base SHA --head SHA [--range-mode merge-base|direct] | --all) --kind KIND
 
 Writes matching paths as a NUL-delimited stream. KIND is one of:
-  any ast_grep eslint localization markdownlint ruff secretlint shell swift
-  text_spacing treefmt_non_swift typos
+  any actionlint ast_grep eslint localization markdownlint ruff secretlint shell
+  swift text_spacing treefmt_non_swift typos
 USAGE
     exit 2
 }
@@ -69,7 +69,7 @@ done
 
 [[ -n "$repo" && -n "$mode" && -n "$kind" ]] || usage
 case "$kind" in
-any | ast_grep | eslint | localization | markdownlint | ruff | secretlint | shell | swift | text_spacing | treefmt_non_swift | typos) ;;
+any | actionlint | ast_grep | eslint | localization | markdownlint | ruff | secretlint | shell | swift | text_spacing | treefmt_non_swift | typos) ;;
 *) usage ;;
 esac
 if [[ "$mode" == "changed" && (-z "$base" || -z "$head") ]]; then
@@ -144,7 +144,8 @@ write_all_paths() {
 is_scope_expansion_path() {
     local path="$1"
     case "$kind:$path" in
-    ast_grep:sgconfig.yml | ast_grep:.sgconfig.yml | \
+    actionlint:.github/actionlint.yaml | actionlint:.github/actionlint.yml | \
+        ast_grep:sgconfig.yml | ast_grep:.sgconfig.yml | \
         eslint:eslint.config.* | eslint:.eslint* | \
         markdownlint:.markdownlintignore | markdownlint:.markdownlint-cli2.* | markdownlint:.markdownlint.json* | \
         ruff:pyproject.toml | ruff:ruff.toml | ruff:.ruff.toml | \
@@ -165,6 +166,7 @@ matches_kind() {
     local first_line
     case "$kind" in
     any | secretlint | typos) return 0 ;;
+    actionlint) [[ "$path" =~ ^\.github/workflows/[^/]+\.(yaml|yml)$ ]] ;;
     ast_grep | swift) [[ "$path" == *.swift ]] ;;
     eslint) [[ "$path" =~ \.(cjs|js|mjs|ts|tsx)$ ]] ;;
     localization) [[ "$path" == *.swift || "$path" == *.xcstrings ]] ;;
