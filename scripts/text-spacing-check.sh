@@ -45,7 +45,7 @@ fi
 
 supports_grep_p() {
     local grep_cmd="$1"
-    printf 'あ A\n' | "$grep_cmd" -P '[\p{Hiragana}\p{Katakana}\p{Han}] [A-Za-z0-9]' >/dev/null 2>&1
+    printf 'あ A\n漢 A\n' | "$grep_cmd" -P '[\p{Hiragana}\p{Katakana}\p{sc=Han}] [A-Za-z0-9]' >/dev/null 2>&1
 }
 
 if [ -x /run/current-system/sw/bin/grep ] && supports_grep_p /run/current-system/sw/bin/grep; then
@@ -99,7 +99,7 @@ is_excluded_file() {
 }
 
 FOUND=0
-SPACING_PATTERN='[\p{Hiragana}\p{Katakana}\p{Han}] [A-Za-z0-9]|[A-Za-z0-9] [\p{Hiragana}\p{Katakana}\p{Han}]'
+SPACING_PATTERN='[\p{Hiragana}\p{Katakana}\p{sc=Han}] [A-Za-z0-9]|[A-Za-z0-9] [\p{Hiragana}\p{Katakana}\p{sc=Han}]'
 FILES="$(collect_files | "$script_dir/quality-gate-path-filter.sh" --repo "$REPO" | while IFS= read -r file; do
     is_target_file "$file" || continue
     is_excluded_file "$file" && continue
