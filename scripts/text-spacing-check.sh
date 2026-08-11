@@ -57,7 +57,7 @@ elif command -v ggrep >/dev/null 2>&1 && supports_grep_p ggrep; then
 elif command -v grep >/dev/null 2>&1 && supports_grep_p grep; then
     GREP_CMD="grep"
 else
-    echo "text-spacing-check.sh: GNU grep with -P support is required (run scripts/install/nix-darwin-apply.sh)" >&2
+    echo "text-spacing-check.sh: GNU grep with -P support is required (run scripts/packages/nix-darwin-apply.sh)" >&2
     exit 2
 fi
 

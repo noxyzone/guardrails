@@ -37,3 +37,4 @@ DVTConsoleExectuableOutputTextColor = "DVTConsoleExectuableOutputTextColor"
 
 [default.extend-words]
 reviewr = "reviewr"
+runn = "runn"
