@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: no-derived-count-property
+message: "TCA Stateで配列から計算できる件数を独立した格納プロパティとして二重保持しない。計算プロパティ（var xxxCount: Int { array.count }）にする。"
+severity: error
+language: Swift
+rule:
+  kind: property_declaration
+  pattern: "var $NAME: Int = 0"
+  follows:
+    kind: property_declaration
+    pattern: "var $ITEMS: [$ELEM] = $INIT"
+    stopBy: neighbor
+  inside:
+    kind: class_declaration
+    stopBy: end
+    has:
+      field: name
+      regex: "^State$"
+constraints:
+  NAME:
+    regex: "Count$"
