@@ -55,6 +55,9 @@ for required in \
     '72a930c9a94fc3914aa56835c5b859c892a797d40c1c42638b98d93f16ff519c' \
     'gh release download v1\.7\.12 --repo rhysd/actionlint --pattern actionlint_1\.7\.12_linux_amd64\.tar\.gz' \
     '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' \
+    'actionlint_version="\$\(actionlint -version\)"' \
+    'actionlint_version="\$\{actionlint_version%%\$'"'"'\\n'"'"'\*\}"' \
+    '\[\[ "\$actionlint_version" == "1\.7\.12" \]\]' \
     'actionlint -shellcheck= -pyflakes=' \
     '\.guardrails/scripts/localization-check\.sh --files-from "\$localization_files" --repo "\$GITHUB_WORKSPACE"' \
     'needs\.detect_changes\.outputs\.swift == '\''true'\'' \|\| needs\.detect_changes\.outputs\.ast_grep == '\''true'\''' \
@@ -152,6 +155,7 @@ done
 # shellcheck disable=SC2016
 for forbidden in \
     'uses: actions/checkout@v[0-9]' \
+    '\[\[ "\$\(actionlint -version\)" == "1\.7\.12" \]\]' \
     'npm install' \
     'pipx install ruff$' \
     'HOMEBREW_CORE_REVISION' \

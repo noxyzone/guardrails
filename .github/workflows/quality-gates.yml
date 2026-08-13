@@ -141,7 +141,9 @@ jobs:
           printf '%s  %s\n' '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' "$actionlint_tmp/actionlint.tar.gz" | sha256sum --check --strict
           tar xzf "$actionlint_tmp/actionlint.tar.gz" -C "$actionlint_tmp"
           sudo install "$actionlint_tmp/actionlint" /usr/local/bin/actionlint
-          [[ "$(actionlint -version)" == "1.7.12" ]]
+          actionlint_version="$(actionlint -version)"
+          actionlint_version="${actionlint_version%%$'\n'*}"
+          [[ "$actionlint_version" == "1.7.12" ]]
 
       - name: Install npm tools
         if: ${{ needs.detect_changes.outputs.eslint == 'true' || needs.detect_changes.outputs.markdownlint == 'true' || needs.detect_changes.outputs.secretlint == 'true' || needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
