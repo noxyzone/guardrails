@@ -22,29 +22,17 @@ jobs:
           repository: noxyzone/guardrails
           path: .guardrails
           persist-credentials: false
+          lfs: true
 
-      - name: Install tools
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PIPX_BIN_DIR: ${{ runner.temp }}/pipx-bin
+      - name: Verify vendored tool versions
         run: |
           set -euo pipefail
 
-          treefmt_tmp="$(mktemp -d)"
-          mkdir -p "$PIPX_BIN_DIR"
-          gh release download v2.5.0 --repo numtide/treefmt --pattern treefmt_2.5.0_linux_amd64.tar.gz --output "$treefmt_tmp/treefmt.tar.gz"
-          printf '%s  %s\n' '95f707bf9666d08b50888b116768fd77f042ad5af92aa3b795f063160e72758f' "$treefmt_tmp/treefmt.tar.gz" | sha256sum --check --strict
-          tar xzf "$treefmt_tmp/treefmt.tar.gz" -C "$treefmt_tmp"
-          sudo install "$treefmt_tmp/treefmt" /usr/local/bin/treefmt
-          gh release download v3.13.1 --repo mvdan/sh --pattern shfmt_v3.13.1_linux_amd64 --output "$treefmt_tmp/shfmt"
-          printf '%s  %s\n' 'fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1' "$treefmt_tmp/shfmt" | sha256sum --check --strict
-          sudo install "$treefmt_tmp/shfmt" /usr/local/bin/shfmt
-          gh release download 0.10.0 --repo tamasfe/taplo --pattern taplo-linux-x86_64.gz --output "$treefmt_tmp/taplo.gz"
-          printf '%s  %s\n' '8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156' "$treefmt_tmp/taplo.gz" | sha256sum --check --strict
-          gzip -d "$treefmt_tmp/taplo.gz"
-          sudo install "$treefmt_tmp/taplo" /usr/local/bin/taplo
-          pipx install ruff==0.15.22
-          npm ci --prefix .guardrails/.github/quality-gates --ignore-scripts
+          chmod +x .guardrails/bin/linux-x86_64/*
+          [[ "$(.guardrails/bin/linux-x86_64/treefmt --version)" == "treefmt v2.5.0" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/shfmt --version)" == "v3.13.1" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/taplo --version)" == "taplo 0.10.0" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/ruff --version)" == "ruff 0.15.22" ]]
 
       - name: Verify shared formatter config links
         run: |
@@ -59,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          export PATH="$RUNNER_TEMP/pipx-bin:$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin:/usr/local/bin:/usr/bin:/bin"
+          export PATH="$GITHUB_WORKSPACE/.guardrails/bin/linux-x86_64:$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin:/usr/local/bin:/usr/bin:/bin"
           .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE"
 
   swiftformat:
@@ -80,22 +68,14 @@ jobs:
           repository: noxyzone/guardrails
           path: .guardrails
           persist-credentials: false
+          lfs: true
 
-      - name: Install SwiftFormat
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SWIFT_TOOLS_BIN: ${{ runner.temp }}/swift-tools-bin
+      - name: Verify vendored SwiftFormat version
         run: |
           set -euo pipefail
 
-          swiftformat_tmp="$(mktemp -d)"
-          mkdir -p "$SWIFT_TOOLS_BIN"
-          gh release download 0.61.1 --repo nicklockwood/SwiftFormat --pattern swiftformat.zip --output "$swiftformat_tmp/swiftformat.zip"
-          printf '%s  %s\n' 'b990400779aceb7d7020796eb9ba814d4480543f671d38fc0ff48cb72f04c584' "$swiftformat_tmp/swiftformat.zip" | shasum -a 256 -c -
-          unzip -q "$swiftformat_tmp/swiftformat.zip" -d "$swiftformat_tmp/swiftformat"
-          install "$swiftformat_tmp/swiftformat/swiftformat" "$SWIFT_TOOLS_BIN/swiftformat"
-          printf '%s\n' "$SWIFT_TOOLS_BIN" >> "$GITHUB_PATH"
-          [[ "$("$SWIFT_TOOLS_BIN/swiftformat" --version)" == "0.61.1" ]]
+          chmod +x .guardrails/bin/macos-arm64/swiftformat
+          [[ "$(.guardrails/bin/macos-arm64/swiftformat --version)" == "0.61.1" ]]
 
       - name: Verify shared formatter config links
         run: |
@@ -110,7 +90,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          export PATH="$RUNNER_TEMP/swift-tools-bin:/usr/bin:/bin"
+          export PATH="$GITHUB_WORKSPACE/.guardrails/bin/macos-arm64:/usr/bin:/bin"
           swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
           if [ -n "$swift_files" ]; then
             printf '%s\n' "$swift_files" | xargs swiftformat --lint --config .guardrails/.swiftformat

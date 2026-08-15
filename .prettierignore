@@ -14,3 +14,7 @@
 **/.agents/skills/.system/**
 **/.agents/skills/hatch-pet/**
 **/.agents/skills/openai-curated-*/**
+
+# Vendored formatter binaries/dependencies
+bin/**
+.github/quality-gates/node_modules/**

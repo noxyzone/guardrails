@@ -94,6 +94,7 @@ jobs:
           ref: ${{ inputs.guardrails-ref }}
           path: .guardrails
           persist-credentials: false
+          lfs: true
 
       - name: Prepare changed-file targets
         env:
@@ -129,6 +130,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq shellcheck
 
+      - name: Prepare vendored tools
+        run: |
+          set -euo pipefail
+
+          chmod +x .guardrails/bin/linux-x86_64/*
+          printf '%s\n' "$GITHUB_WORKSPACE/.guardrails/bin/linux-x86_64" >> "$GITHUB_PATH"
+          printf '%s\n' "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin" >> "$GITHUB_PATH"
+          [[ "$(.guardrails/bin/linux-x86_64/treefmt --version)" == "treefmt v2.5.0" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/shfmt --version)" == "v3.13.1" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/taplo --version)" == "taplo 0.10.0" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/ruff --version)" == "ruff 0.15.22" ]]
+
       - name: Install actionlint
         if: ${{ needs.detect_changes.outputs.actionlint == 'true' }}
         env:
@@ -144,45 +157,6 @@ jobs:
           actionlint_version="$(actionlint -version)"
           actionlint_version="${actionlint_version%%$'\n'*}"
           [[ "$actionlint_version" == "1.7.12" ]]
-
-      - name: Install npm tools
-        if: ${{ needs.detect_changes.outputs.eslint == 'true' || needs.detect_changes.outputs.markdownlint == 'true' || needs.detect_changes.outputs.secretlint == 'true' || needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
-        run: |
-          set -euo pipefail
-
-          npm ci --prefix .guardrails/.github/quality-gates --ignore-scripts
-          printf '%s\n' "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin" >> "$GITHUB_PATH"
-
-      - name: Install Ruff
-        if: ${{ needs.detect_changes.outputs.ruff == 'true' || needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
-        env:
-          PIPX_BIN_DIR: ${{ runner.temp }}/pipx-bin
-        run: |
-          set -euo pipefail
-
-          mkdir -p "$PIPX_BIN_DIR"
-          pipx install ruff==0.15.22
-          printf '%s\n' "$PIPX_BIN_DIR" >> "$GITHUB_PATH"
-
-      - name: Install Treefmt tools
-        if: ${{ needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          treefmt_tmp="$(mktemp -d)"
-          gh release download v2.5.0 --repo numtide/treefmt --pattern treefmt_2.5.0_linux_amd64.tar.gz --output "$treefmt_tmp/treefmt.tar.gz"
-          printf '%s  %s\n' '95f707bf9666d08b50888b116768fd77f042ad5af92aa3b795f063160e72758f' "$treefmt_tmp/treefmt.tar.gz" | sha256sum --check --strict
-          tar xzf "$treefmt_tmp/treefmt.tar.gz" -C "$treefmt_tmp"
-          sudo install "$treefmt_tmp/treefmt" /usr/local/bin/treefmt
-          gh release download v3.13.1 --repo mvdan/sh --pattern shfmt_v3.13.1_linux_amd64 --output shfmt
-          printf '%s  %s\n' 'fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1' shfmt | sha256sum --check --strict
-          sudo install shfmt /usr/local/bin/shfmt
-          gh release download 0.10.0 --repo tamasfe/taplo --pattern taplo-linux-x86_64.gz --output taplo.gz
-          printf '%s  %s\n' '8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156' taplo.gz | sha256sum --check --strict
-          gzip -d taplo.gz
-          sudo install taplo /usr/local/bin/taplo
 
       - name: Install Typos
         if: ${{ needs.detect_changes.outputs.typos == 'true' }}
@@ -219,7 +193,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          export PATH="$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin:$RUNNER_TEMP/pipx-bin:/usr/local/bin:/usr/bin:/bin"
           targets="$RUNNER_TEMP/quality-gate-targets/treefmt_non_swift.bin"
           if [[ -s "$targets" ]]; then
             xargs -0 .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE" -- <"$targets"
@@ -357,6 +330,7 @@ jobs:
           ref: ${{ inputs.guardrails-ref }}
           path: .guardrails
           persist-credentials: false
+          lfs: true
 
       - name: Prepare changed-file targets
         env:
@@ -395,34 +369,33 @@ jobs:
           swift_tools_tmp="$(mktemp -d)"
           mkdir -p "$SWIFT_TOOLS_BIN"
           gh release download 0.44.1 --repo ast-grep/ast-grep --pattern app-aarch64-apple-darwin.zip --output "$swift_tools_tmp/ast-grep.zip"
-          gh release download 0.61.1 --repo nicklockwood/SwiftFormat --pattern swiftformat.zip --output "$swift_tools_tmp/swiftformat.zip"
           gh release download 0.63.2 --repo realm/SwiftLint --pattern portable_swiftlint.zip --output "$swift_tools_tmp/swiftlint.zip"
           printf '%s  %s\n' '0a2fef273b0ff1238b8307add911714f92021d25b919fa3ec9b6b2e046bb29cf' "$swift_tools_tmp/ast-grep.zip" | shasum -a 256 -c -
-          printf '%s  %s\n' 'b990400779aceb7d7020796eb9ba814d4480543f671d38fc0ff48cb72f04c584' "$swift_tools_tmp/swiftformat.zip" | shasum -a 256 -c -
           printf '%s  %s\n' 'c59a405c85f95b92ced677a500804e081596a4cae4a6a485af76065557d6ed29' "$swift_tools_tmp/swiftlint.zip" | shasum -a 256 -c -
           unzip -q "$swift_tools_tmp/ast-grep.zip" -d "$swift_tools_tmp/ast-grep"
-          unzip -q "$swift_tools_tmp/swiftformat.zip" -d "$swift_tools_tmp/swiftformat"
           unzip -q "$swift_tools_tmp/swiftlint.zip" -d "$swift_tools_tmp/swiftlint"
           install "$swift_tools_tmp/ast-grep/ast-grep" "$SWIFT_TOOLS_BIN/ast-grep"
           install "$swift_tools_tmp/ast-grep/sg" "$SWIFT_TOOLS_BIN/sg"
-          install "$swift_tools_tmp/swiftformat/swiftformat" "$SWIFT_TOOLS_BIN/swiftformat"
           install "$swift_tools_tmp/swiftlint/swiftlint" "$SWIFT_TOOLS_BIN/swiftlint"
           printf '%s\n' "$SWIFT_TOOLS_BIN" >> "$GITHUB_PATH"
           ast_grep_version="$("$SWIFT_TOOLS_BIN/ast-grep" --version)"
-          swiftformat_version="$("$SWIFT_TOOLS_BIN/swiftformat" --version)"
           swiftlint_version="$("$SWIFT_TOOLS_BIN/swiftlint" version)"
           if [[ "$ast_grep_version" != "ast-grep 0.44.1" ]]; then
             echo "::error::ast-grep version mismatch: expected 0.44.1, got $ast_grep_version"
-            exit 1
-          fi
-          if [[ "$swiftformat_version" != "0.61.1" ]]; then
-            echo "::error::SwiftFormat version mismatch: expected 0.61.1, got $swiftformat_version"
             exit 1
           fi
           if [[ "$swiftlint_version" != "0.63.2" ]]; then
             echo "::error::SwiftLint version mismatch: expected 0.63.2, got $swiftlint_version"
             exit 1
           fi
+
+      - name: Verify vendored SwiftFormat version
+        run: |
+          set -euo pipefail
+
+          chmod +x .guardrails/bin/macos-arm64/swiftformat
+          printf '%s\n' "$GITHUB_WORKSPACE/.guardrails/bin/macos-arm64" >> "$GITHUB_PATH"
+          [[ "$(.guardrails/bin/macos-arm64/swiftformat --version)" == "0.61.1" ]]
 
       - name: Run ast-grep
         if: ${{ needs.detect_changes.outputs.ast_grep == 'true' }}

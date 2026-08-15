@@ -152,7 +152,9 @@ treefmt_excludes="$("$FILTER" --repo /tmp --treefmt-excludes)"
 for required_exclude in \
     '.agents/skills/.system/**' \
     '.agents/skills/hatch-pet/**' \
-    '.agents/skills/openai-curated-*/**'; do
+    '.agents/skills/openai-curated-*/**' \
+    'bin/**' \
+    '.github/quality-gates/node_modules/**'; do
     if ! printf '%s\n' "$treefmt_excludes" | rg -Fxq -- "$required_exclude"; then
         printf 'FAIL: Treefmt excludes do not cover managed artifact path: %s\n' "$required_exclude" >&2
         exit 1

@@ -26,62 +26,53 @@ for required in \
     '--output "\$GITHUB_OUTPUT"' \
     'ast_grep: \$\{\{ steps\.changed\.outputs\.ast_grep \}\}' \
     'uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955' \
-    'npm ci --prefix \.guardrails/\.github/quality-gates --ignore-scripts' \
-    'PIPX_BIN_DIR: \$\{\{ runner\.temp \}\}/pipx-bin' \
-    'mkdir -p "\$PIPX_BIN_DIR"' \
-    'pipx install ruff==0\.15\.22' \
-    'printf '\''%s\\n'\'' "\$PIPX_BIN_DIR" >> "\$GITHUB_PATH"' \
-    'export PATH="\$GITHUB_WORKSPACE/\.guardrails/\.github/quality-gates/node_modules/\.bin:\$RUNNER_TEMP/pipx-bin:/usr/local/bin:/usr/bin:/bin"' \
+    'chmod \+x \.guardrails/bin/linux-x86_64/\*' \
+    'printf '\''%s\\n'\'' "\$GITHUB_WORKSPACE/\.guardrails/bin/linux-x86_64" >> "\$GITHUB_PATH"' \
+    'printf '\''%s\\n'\'' "\$GITHUB_WORKSPACE/\.guardrails/\.github/quality-gates/node_modules/\.bin" >> "\$GITHUB_PATH"' \
+    '\[\[ "\$\(\.guardrails/bin/linux-x86_64/treefmt --version\)" == "treefmt v2\.5\.0" \]\]' \
+    '\[\[ "\$\(\.guardrails/bin/linux-x86_64/shfmt --version\)" == "v3\.13\.1" \]\]' \
+    '\[\[ "\$\(\.guardrails/bin/linux-x86_64/taplo --version\)" == "taplo 0\.10\.0" \]\]' \
+    '\[\[ "\$\(\.guardrails/bin/linux-x86_64/ruff --version\)" == "ruff 0\.15\.22" \]\]' \
     'app-aarch64-apple-darwin\.zip' \
-    'swiftformat\.zip' \
     'portable_swiftlint\.zip' \
     '0a2fef273b0ff1238b8307add911714f92021d25b919fa3ec9b6b2e046bb29cf' \
-    'b990400779aceb7d7020796eb9ba814d4480543f671d38fc0ff48cb72f04c584' \
     'c59a405c85f95b92ced677a500804e081596a4cae4a6a485af76065557d6ed29' \
     'printf '\''%s\\n'\'' "\$SWIFT_TOOLS_BIN" >> "\$GITHUB_PATH"' \
     'ast-grep version mismatch: expected 0\.44\.1' \
-    'SwiftFormat version mismatch: expected 0\.61\.1' \
     'SwiftLint version mismatch: expected 0\.63\.2' \
+    'chmod \+x \.guardrails/bin/macos-arm64/swiftformat' \
+    'printf '\''%s\\n'\'' "\$GITHUB_WORKSPACE/\.guardrails/bin/macos-arm64" >> "\$GITHUB_PATH"' \
+    '\[\[ "\$\(\.guardrails/bin/macos-arm64/swiftformat --version\)" == "0\.61\.1" \]\]' \
     'GH_TOKEN: \$\{\{ github\.token \}\}' \
-    'treefmt_tmp="\$\(mktemp -d\)"' \
-    'gh release download v2\.5\.0 --repo numtide/treefmt --pattern treefmt_2\.5\.0_linux_amd64\.tar\.gz --output "\$treefmt_tmp/treefmt\.tar\.gz"' \
-    'tar xzf "\$treefmt_tmp/treefmt\.tar\.gz" -C "\$treefmt_tmp"' \
-    'sudo install "\$treefmt_tmp/treefmt" /usr/local/bin/treefmt' \
-    'gh release download v3\.13\.1 --repo mvdan/sh --pattern shfmt_v3\.13\.1_linux_amd64 --output shfmt' \
-    'gh release download 0\.10\.0 --repo tamasfe/taplo --pattern taplo-linux-x86_64\.gz --output taplo\.gz' \
-    '95f707bf9666d08b50888b116768fd77f042ad5af92aa3b795f063160e72758f' \
-    'fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1' \
-    '8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156' \
-    '72a930c9a94fc3914aa56835c5b859c892a797d40c1c42638b98d93f16ff519c' \
     'gh release download v1\.7\.12 --repo rhysd/actionlint --pattern actionlint_1\.7\.12_linux_amd64\.tar\.gz' \
     '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' \
     'actionlint_version="\$\(actionlint -version\)"' \
     'actionlint_version="\$\{actionlint_version%%\$'"'"'\\n'"'"'\*\}"' \
     '\[\[ "\$actionlint_version" == "1\.7\.12" \]\]' \
     'actionlint -shellcheck= -pyflakes=' \
+    '72a930c9a94fc3914aa56835c5b859c892a797d40c1c42638b98d93f16ff519c' \
     '\.guardrails/scripts/localization-check\.sh --files-from "\$localization_files" --repo "\$GITHUB_WORKSPACE"' \
     'needs\.detect_changes\.outputs\.swift == '\''true'\'' \|\| needs\.detect_changes\.outputs\.ast_grep == '\''true'\''' \
-    'ast-grep scan --config \.guardrails/sgconfig\.yml --report-style short'; do
+    'ast-grep scan --config \.guardrails/sgconfig\.yml --report-style short' \
+    'lfs: true'; do
     if ! rg -q -- "$required" "$WORKFLOW"; then
         echo "FAIL: QualityGates must wire ast-grep rule: $required" >&2
         exit 1
     fi
 done
 
-# treefmt.ymlはQualityGatesと同じ固定formatter契約を再利用する。
+# treefmt.ymlはQualityGatesと同じ固定formatter契約（vendored binaries）を再利用する。
 # shellcheck disable=SC2016
 for required in \
     'uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955' \
-    'npm ci --prefix \.guardrails/\.github/quality-gates --ignore-scripts' \
-    'pipx install ruff==0\.15\.22' \
-    'gh release download v2\.5\.0 --repo numtide/treefmt --pattern treefmt_2\.5\.0_linux_amd64\.tar\.gz' \
-    'gh release download v3\.13\.1 --repo mvdan/sh --pattern shfmt_v3\.13\.1_linux_amd64' \
-    'gh release download 0\.10\.0 --repo tamasfe/taplo --pattern taplo-linux-x86_64\.gz' \
-    'gh release download 0\.61\.1 --repo nicklockwood/SwiftFormat --pattern swiftformat\.zip' \
-    '95f707bf9666d08b50888b116768fd77f042ad5af92aa3b795f063160e72758f' \
-    'fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1' \
-    '8fe196b894ccf9072f98d4e1013a180306e17d244830b03986ee5e8eabeb6156' \
-    'b990400779aceb7d7020796eb9ba814d4480543f671d38fc0ff48cb72f04c584'; do
+    'lfs: true' \
+    'chmod \+x \.guardrails/bin/linux-x86_64/\*' \
+    '\[\[ "\$\(\.guardrails/bin/linux-x86_64/treefmt --version\)" == "treefmt v2\.5\.0" \]\]' \
+    '\[\[ "\$\(\.guardrails/bin/linux-x86_64/shfmt --version\)" == "v3\.13\.1" \]\]' \
+    '\[\[ "\$\(\.guardrails/bin/linux-x86_64/taplo --version\)" == "taplo 0\.10\.0" \]\]' \
+    '\[\[ "\$\(\.guardrails/bin/linux-x86_64/ruff --version\)" == "ruff 0\.15\.22" \]\]' \
+    'chmod \+x \.guardrails/bin/macos-arm64/swiftformat' \
+    '\[\[ "\$\(\.guardrails/bin/macos-arm64/swiftformat --version\)" == "0\.61\.1" \]\]'; do
     if ! rg -q -- "$required" "$TREEFMT_WORKFLOW"; then
         echo "FAIL: Treefmt workflow must match the pinned QualityGates formatter contract: $required" >&2
         exit 1
@@ -93,9 +84,9 @@ for treefmt_workflow in "$WORKFLOW" "$TREEFMT_WORKFLOW"; do
         echo "FAIL: Treefmt workflow retains the old 2.3.0 contract: $treefmt_workflow" >&2
         exit 1
     fi
-    if [[ "$(rg -c 'treefmt_2\.5\.0_linux_amd64\.tar\.gz' "$treefmt_workflow")" != "1" ]] ||
-        [[ "$(rg -c '95f707bf9666d08b50888b116768fd77f042ad5af92aa3b795f063160e72758f' "$treefmt_workflow")" != "1" ]]; then
-        echo "FAIL: Treefmt workflow must use the same 2.5.0 asset and checksum exactly once: $treefmt_workflow" >&2
+    # shellcheck disable=SC2016
+    if [[ "$(rg -c -- '\[\[ "\$\(\.guardrails/bin/linux-x86_64/treefmt --version\)" == "treefmt v2\.5\.0" \]\]' "$treefmt_workflow")" != "1" ]]; then
+        echo "FAIL: Treefmt workflow must assert the vendored 2.5.0 treefmt binary exactly once: $treefmt_workflow" >&2
         exit 1
     fi
 done
@@ -104,8 +95,13 @@ for forbidden in \
     'uses: actions/checkout@v[0-9]' \
     'sudo apt-get install.*shfmt' \
     'brew install swiftformat' \
-    'pipx install ruff$' \
-    'npm install'; do
+    'pipx install ruff' \
+    'npm install' \
+    'npm ci --prefix' \
+    'gh release download v2\.5\.0 --repo numtide/treefmt' \
+    'gh release download v3\.13\.1 --repo mvdan/sh' \
+    'gh release download 0\.10\.0 --repo tamasfe/taplo' \
+    'gh release download 0\.61\.1 --repo nicklockwood/SwiftFormat'; do
     if rg -q -- "$forbidden" "$TREEFMT_WORKFLOW"; then
         echo "FAIL: Treefmt workflow contains a mutable formatter dependency: $forbidden" >&2
         exit 1
@@ -157,9 +153,14 @@ for forbidden in \
     'uses: actions/checkout@v[0-9]' \
     '\[\[ "\$\(actionlint -version\)" == "1\.7\.12" \]\]' \
     'npm install' \
-    'pipx install ruff$' \
+    'npm ci --prefix' \
+    'pipx install ruff' \
     'HOMEBREW_CORE_REVISION' \
     'brew install ast-grep' \
+    'gh release download v2\.5\.0 --repo numtide/treefmt' \
+    'gh release download v3\.13\.1 --repo mvdan/sh' \
+    'gh release download 0\.10\.0 --repo tamasfe/taplo' \
+    'gh release download 0\.61\.1 --repo nicklockwood/SwiftFormat' \
     'xargs -0 swiftformat --lint --config .guardrails/.swiftformat <"\$targets"' \
     'range_mode=direct' \
     'scope_args=\(--all\)' \
@@ -185,7 +186,7 @@ if rg -Fq 'xargs -0 swiftformat --lint --config .guardrails/.swiftformat --' "$W
     exit 1
 fi
 
-if [[ "$(rg -c 'sha256sum --check --strict' "$WORKFLOW")" != "5" ]]; then
+if [[ "$(rg -c 'sha256sum --check --strict' "$WORKFLOW")" != "2" ]]; then
     echo "FAIL: every downloaded release asset must have an exact SHA-256 check" >&2
     exit 1
 fi
@@ -224,6 +225,11 @@ if [[ "$(rg -c -- '--scope "\$SCOPE_INPUT"' "$WORKFLOW")" != "3" ]]; then
 fi
 if rg -q -- '--scope "\$\{\{ inputs\.scope \}\}"' "$WORKFLOW"; then
     echo "FAIL: workflow expressions must not be interpolated directly into the scope resolver shell command" >&2
+    exit 1
+fi
+
+if [[ "$(rg -c -- 'lfs: true' "$WORKFLOW")" != "2" ]]; then
+    echo "FAIL: both ubuntu_guardrails and macos_guardrails guardrails checkouts must fetch LFS content" >&2
     exit 1
 fi
 

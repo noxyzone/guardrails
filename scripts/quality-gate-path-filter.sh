@@ -100,7 +100,9 @@ is_managed_artifact_path() {
     case "$1" in
     .agents/skills/.system | .agents/skills/.system/* | \
         .agents/skills/hatch-pet | .agents/skills/hatch-pet/* | \
-        .agents/skills/openai-curated-*)
+        .agents/skills/openai-curated-* | \
+        bin | bin/* | \
+        .github/quality-gates/node_modules | .github/quality-gates/node_modules/*)
         return 0
         ;;
     esac
@@ -122,6 +124,8 @@ treefmt-excludes)
     printf '%s\n' '.agents/skills/.system/**'
     printf '%s\n' '.agents/skills/hatch-pet/**'
     printf '%s\n' '.agents/skills/openai-curated-*/**'
+    printf '%s\n' 'bin/**'
+    printf '%s\n' '.github/quality-gates/node_modules/**'
     printf '%s\n' "${distribution_paths[@]}"
     ;;
 manifest-paths)

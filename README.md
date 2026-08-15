@@ -9,7 +9,7 @@
 | ゲート       | workflow                               | 主な対象                                                   | 検出・確認内容                                                                             |
 | ------------ | -------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | GitIdentity  | `.github/workflows/git-identity.yml`   | commit author/committer                                    | GitHub noreply email以外の公開混入                                                         |
-| QualityGates | `.github/workflows/quality-gates.yml`  | PRで変更されたファイル種別に応じた各guardrails検査         | 変更ファイル判定、Actionlintを含む必要jobの実行、不要job skip、各guardrails検査結果の集約   |
+| QualityGates | `.github/workflows/quality-gates.yml`  | PRで変更されたファイル種別に応じた各guardrails検査         | 変更ファイル判定、Actionlintを含む必要jobの実行、不要job skip、各guardrails検査結果の集約  |
 | SecretLint   | `.github/workflows/secretlint.yml`     | Git管理下の実ファイル                                      | API key、token、password、秘密鍵などの秘密情報混入                                         |
 | Treefmt      | `.github/workflows/treefmt.yml`        | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | Ubuntuでの非Swift整形差分、macOSでのSwiftFormat差分、repoローカル`.swiftformat`の混入      |
 | TextSpacing  | `.github/workflows/text-spacing.yml`   | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース                                                     |
