@@ -9,7 +9,6 @@ WORKFLOW="$ROOT_DIR/.github/workflows/quality-gates.yml"
 actual="$({
     printf '%s\n' \
         '.agents/skills/.system/imagegen/SKILL.md' \
-        '.agents/skills/hatch-pet/SKILL.md' \
         '.agents/skills/openai-curated-build-run-debug/SKILL.md' \
         '.agents/skills/nocturnalzone-build-run-debug/SKILL.md' \
         '.agents/skills/openai-curatedness-build-run-debug/SKILL.md' \
@@ -50,7 +49,6 @@ fi
 
 null_actual="$({
     printf '%s\0' \
-        '.agents/skills/hatch-pet/agents/openai.yaml' \
         '.agents/skills/openai-curated-build-run-debug/agents/openai.yaml' \
         '.agents/skills/nocturnalzone-build-run-debug/SKILL.md' \
         '.agents/skills/openai-curatedness-build-run-debug/SKILL.md' \
@@ -97,16 +95,13 @@ if [[ "$manifest_actual" != "$manifest_expected" ]]; then
 fi
 
 mkdir -p \
-    "$fixture/.agents/skills/hatch-pet" \
     "$fixture/.agents/skills/openai-curated-build-run-debug" \
     "$fixture/.agents/skills/nocturnalzone-build-run-debug" \
     "$fixture/.agents/skills/openai-curatedness-build-run-debug"
-printf '%s\n' '公式 配布物の検査違反fixture' >"$fixture/.agents/skills/hatch-pet/SKILL.md"
 printf '%s\n' '公式 配布物の検査違反fixture' >"$fixture/.agents/skills/openai-curated-build-run-debug/SKILL.md"
 printf '%s\n' '自作スキルfixture' >"$fixture/.agents/skills/nocturnalzone-build-run-debug/SKILL.md"
 printf '%s\n' '類似名fixture' >"$fixture/.agents/skills/openai-curatedness-build-run-debug/SKILL.md"
 git -C "$fixture" add \
-    .agents/skills/hatch-pet \
     .agents/skills/openai-curated-build-run-debug \
     .agents/skills/nocturnalzone-build-run-debug \
     .agents/skills/openai-curatedness-build-run-debug
@@ -151,7 +146,6 @@ treefmt_excludes="$("$FILTER" --repo /tmp --treefmt-excludes)"
 # shellcheck disable=SC2041 # 単一要素のglob文字列リテラルであり、コマンド実行ではない
 for required_exclude in \
     '.agents/skills/.system/**' \
-    '.agents/skills/hatch-pet/**' \
     '.agents/skills/openai-curated-*/**' \
     'bin/**' \
     '.github/quality-gates/node_modules/**'; do
