@@ -4,7 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT_DIR/.github/workflows/quality-gates.yml"
 TREEFMT_WORKFLOW="$ROOT_DIR/.github/workflows/treefmt.yml"
+SWIFTLINT_WORKFLOW="$ROOT_DIR/.github/workflows/swiftlint.yml"
 PRETTIER_CONFIG="$ROOT_DIR/prettier.cjs"
+VENDORED_TOOLS_MANIFEST="$ROOT_DIR/config/vendored-tools.tsv"
 
 # shellcheck disable=SC2016
 for required in \
@@ -34,15 +36,13 @@ for required in \
     '\[\[ "\$\(\.guardrails/bin/linux-x86_64/taplo --version\)" == "taplo 0\.10\.0" \]\]' \
     '\[\[ "\$\(\.guardrails/bin/linux-x86_64/ruff --version\)" == "ruff 0\.15\.22" \]\]' \
     'app-aarch64-apple-darwin\.zip' \
-    'portable_swiftlint\.zip' \
     '0a2fef273b0ff1238b8307add911714f92021d25b919fa3ec9b6b2e046bb29cf' \
-    'c59a405c85f95b92ced677a500804e081596a4cae4a6a485af76065557d6ed29' \
     'printf '\''%s\\n'\'' "\$SWIFT_TOOLS_BIN" >> "\$GITHUB_PATH"' \
     'ast-grep version mismatch: expected 0\.44\.1' \
-    'SwiftLint version mismatch: expected 0\.63\.2' \
-    'chmod \+x \.guardrails/bin/macos-arm64/swiftformat' \
+    'chmod \+x \.guardrails/bin/macos-arm64/swiftformat \.guardrails/bin/macos-arm64/swiftlint' \
     'printf '\''%s\\n'\'' "\$GITHUB_WORKSPACE/\.guardrails/bin/macos-arm64" >> "\$GITHUB_PATH"' \
     '\[\[ "\$\(\.guardrails/bin/macos-arm64/swiftformat --version\)" == "0\.61\.1" \]\]' \
+    '\[\[ "\$\(\.guardrails/bin/macos-arm64/swiftlint version\)" == "0\.63\.2" \]\]' \
     'GH_TOKEN: \$\{\{ github\.token \}\}' \
     'gh release download v1\.7\.12 --repo rhysd/actionlint --pattern actionlint_1\.7\.12_linux_amd64\.tar\.gz' \
     '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' \
@@ -108,6 +108,49 @@ for forbidden in \
     fi
 done
 
+# SwiftLint単独workflowもQualityGatesと同じvendored binaryを使う。
+# shellcheck disable=SC2016
+for required in \
+    'uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955' \
+    'lfs: true' \
+    'chmod +x .guardrails/bin/macos-arm64/swiftlint' \
+    '[[ "$(.guardrails/bin/macos-arm64/swiftlint version)" == "0.63.2" ]]' \
+    'export PATH="$GITHUB_WORKSPACE/.guardrails/bin/macos-arm64:/usr/bin:/bin"'; do
+    if ! grep -Fq "$required" "$SWIFTLINT_WORKFLOW"; then
+        echo "FAIL: SwiftLint workflow must use the vendored 0.63.2 binary: $required" >&2
+        exit 1
+    fi
+done
+
+for forbidden in \
+    'uses: actions/checkout@v[0-9]' \
+    'brew install swiftlint' \
+    'gh release download' \
+    'portable_swiftlint.zip'; do
+    if rg -q -- "$forbidden" "$SWIFTLINT_WORKFLOW"; then
+        echo "FAIL: SwiftLint workflow contains a mutable tool dependency: $forbidden" >&2
+        exit 1
+    fi
+done
+
+expected_manifest_row=$'swiftlint\tmacos-arm64\t0.63.2\thttps://github.com/realm/SwiftLint/releases/download/0.63.2/portable_swiftlint.zip\tc59a405c85f95b92ced677a500804e081596a4cae4a6a485af76065557d6ed29\t2991cdee904be388d6d15e9cea560c3d6b0d8c009462b8261ed608709b7712c7\tlicenses/swiftlint.txt'
+grep -Fxq "$expected_manifest_row" "$VENDORED_TOOLS_MANIFEST" || {
+    echo "FAIL: vendored tools manifest must pin SwiftLint provenance and integrity" >&2
+    exit 1
+}
+[[ "$("$ROOT_DIR/bin/macos-arm64/swiftlint" version)" == "0.63.2" ]] || {
+    echo "FAIL: vendored SwiftLint version mismatch" >&2
+    exit 1
+}
+[[ "$(shasum -a 256 "$ROOT_DIR/bin/macos-arm64/swiftlint" | awk '{print $1}')" == "2991cdee904be388d6d15e9cea560c3d6b0d8c009462b8261ed608709b7712c7" ]] || {
+    echo "FAIL: vendored SwiftLint binary checksum mismatch" >&2
+    exit 1
+}
+[[ -f "$ROOT_DIR/licenses/swiftlint.txt" ]] || {
+    echo "FAIL: vendored SwiftLint license is missing" >&2
+    exit 1
+}
+
 # shellcheck disable=SC2016
 for required in \
     'const qualityGatesPackageRoot = path.join(__dirname, ".github/quality-gates");' \
@@ -161,6 +204,9 @@ for forbidden in \
     'gh release download v3\.13\.1 --repo mvdan/sh' \
     'gh release download 0\.10\.0 --repo tamasfe/taplo' \
     'gh release download 0\.61\.1 --repo nicklockwood/SwiftFormat' \
+    'gh release download 0\.63\.2 --repo realm/SwiftLint' \
+    'portable_swiftlint\.zip' \
+    'brew install swiftlint' \
     'xargs -0 swiftformat --lint --config .guardrails/.swiftformat <"\$targets"' \
     'range_mode=direct' \
     'scope_args=\(--all\)' \

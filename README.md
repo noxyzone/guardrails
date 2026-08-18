@@ -103,6 +103,10 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
 - LLMCLIStream
   `*/zsh/*`とzsh判定されたshell scriptを除外し、`contrib/`、`vendor/`、`node_modules/`、`.claude/plugins/`、`plugins/cache/`配下を対象外にします。`printf`・`echo`・`sed`等の小出力producerと、`>/dev/null`で無音化したtee、`# guardrail-allow: llm-cli-stream`付き行は除外します。
 
+## Vendoredツール
+
+CIとローカル環境は`bin/<platform>/`にGit LFSでcommitした同一バイナリを使います。バージョン、公式配布元、配布物とバイナリのSHA-256、ライセンスpathは`config/vendored-tools.tsv`を正本とします。現在、macOS向けSwiftLint 0.63.2をvendoredツールとして管理します。
+
 ## 設定ファイル
 
 | ファイル                  | 用途                        |

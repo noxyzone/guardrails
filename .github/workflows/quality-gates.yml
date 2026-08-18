@@ -359,7 +359,7 @@ jobs:
               --kind "$kind" >"$target_dir/$kind.bin"
           done
 
-      - name: Install Swift tools
+      - name: Install ast-grep
         env:
           GH_TOKEN: ${{ github.token }}
           SWIFT_TOOLS_BIN: ${{ runner.temp }}/swift-tools-bin
@@ -369,33 +369,25 @@ jobs:
           swift_tools_tmp="$(mktemp -d)"
           mkdir -p "$SWIFT_TOOLS_BIN"
           gh release download 0.44.1 --repo ast-grep/ast-grep --pattern app-aarch64-apple-darwin.zip --output "$swift_tools_tmp/ast-grep.zip"
-          gh release download 0.63.2 --repo realm/SwiftLint --pattern portable_swiftlint.zip --output "$swift_tools_tmp/swiftlint.zip"
           printf '%s  %s\n' '0a2fef273b0ff1238b8307add911714f92021d25b919fa3ec9b6b2e046bb29cf' "$swift_tools_tmp/ast-grep.zip" | shasum -a 256 -c -
-          printf '%s  %s\n' 'c59a405c85f95b92ced677a500804e081596a4cae4a6a485af76065557d6ed29' "$swift_tools_tmp/swiftlint.zip" | shasum -a 256 -c -
           unzip -q "$swift_tools_tmp/ast-grep.zip" -d "$swift_tools_tmp/ast-grep"
-          unzip -q "$swift_tools_tmp/swiftlint.zip" -d "$swift_tools_tmp/swiftlint"
           install "$swift_tools_tmp/ast-grep/ast-grep" "$SWIFT_TOOLS_BIN/ast-grep"
           install "$swift_tools_tmp/ast-grep/sg" "$SWIFT_TOOLS_BIN/sg"
-          install "$swift_tools_tmp/swiftlint/swiftlint" "$SWIFT_TOOLS_BIN/swiftlint"
           printf '%s\n' "$SWIFT_TOOLS_BIN" >> "$GITHUB_PATH"
           ast_grep_version="$("$SWIFT_TOOLS_BIN/ast-grep" --version)"
-          swiftlint_version="$("$SWIFT_TOOLS_BIN/swiftlint" version)"
           if [[ "$ast_grep_version" != "ast-grep 0.44.1" ]]; then
             echo "::error::ast-grep version mismatch: expected 0.44.1, got $ast_grep_version"
             exit 1
           fi
-          if [[ "$swiftlint_version" != "0.63.2" ]]; then
-            echo "::error::SwiftLint version mismatch: expected 0.63.2, got $swiftlint_version"
-            exit 1
-          fi
 
-      - name: Verify vendored SwiftFormat version
+      - name: Verify vendored Swift tool versions
         run: |
           set -euo pipefail
 
-          chmod +x .guardrails/bin/macos-arm64/swiftformat
+          chmod +x .guardrails/bin/macos-arm64/swiftformat .guardrails/bin/macos-arm64/swiftlint
           printf '%s\n' "$GITHUB_WORKSPACE/.guardrails/bin/macos-arm64" >> "$GITHUB_PATH"
           [[ "$(.guardrails/bin/macos-arm64/swiftformat --version)" == "0.61.1" ]]
+          [[ "$(.guardrails/bin/macos-arm64/swiftlint version)" == "0.63.2" ]]
 
       - name: Run ast-grep
         if: ${{ needs.detect_changes.outputs.ast_grep == 'true' }}
