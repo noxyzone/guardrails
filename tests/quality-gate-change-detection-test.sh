@@ -19,13 +19,15 @@ shell_path=$'scripts/tab\tname.sh'
 markdown_path='docs/-note.md'
 renamed_path='renamed module.ts'
 workflow_path='.github/workflows/quality gates.yaml'
-mkdir -p "$FIXTURE/Sources" "$FIXTURE/scripts" "$FIXTURE/docs" "$FIXTURE/.github/workflows"
+yaml_path='config/settings.yaml'
+mkdir -p "$FIXTURE/Sources" "$FIXTURE/scripts" "$FIXTURE/docs" "$FIXTURE/.github/workflows" "$FIXTURE/config"
 printf 'struct Fixture {}\n' >"$FIXTURE/$swift_path"
 printf '#!/usr/bin/env bash\n' >"$FIXTURE/$shell_path"
 printf '# Fixture\n' >"$FIXTURE/$markdown_path"
 printf 'name: Quality Gates\non: push\njobs: {}\n' >"$FIXTURE/$workflow_path"
+printf 'setting: value\n' >"$FIXTURE/$yaml_path"
 git -C "$FIXTURE" mv -- original.ts "$renamed_path"
-git -C "$FIXTURE" add -- "$swift_path" "$shell_path" "$markdown_path" "$renamed_path" "$workflow_path"
+git -C "$FIXTURE" add -- "$swift_path" "$shell_path" "$markdown_path" "$renamed_path" "$workflow_path" "$yaml_path"
 head_tree="$(git -C "$FIXTURE" write-tree)"
 head_sha="$(printf 'special names\n' | git -C "$FIXTURE" commit-tree "$head_tree" -p "$base_sha")"
 
@@ -49,6 +51,7 @@ for expected in \
     'swift=true' \
     'text_spacing=true' \
     'treefmt_non_swift=true' \
+    'yamllint=true' \
     'ubuntu=true'; do
     if ! grep -Fxq -- "$expected" "$output"; then
         printf 'FAIL: missing output %s\n' "$expected" >&2

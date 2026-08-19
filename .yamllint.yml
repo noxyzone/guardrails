@@ -1,0 +1,16 @@
+extends: default
+
+rules:
+  # GitHub Actions workflowはactionlintが担当するため、このゲート対象から除外する
+  # （quality-gate-targets.shのyamllint kindが.github/workflows/を対象外にする）。
+  document-start: disable
+  # スクリプト呼び出しを1行のrunコマンドへ埋め込むため、長い行は許容する。
+  line-length: disable
+  # `on:`等をtruthy誤判定させないため、keyへのtruthyチェックは無効化する。
+  truthy:
+    check-keys: false
+  # PrettierがYAMLのflow style（`{ name: x }`）へ単一スペースを入れる規約と揃える。
+  braces:
+    max-spaces-inside: 1
+  brackets:
+    max-spaces-inside: 1

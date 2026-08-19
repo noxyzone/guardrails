@@ -258,4 +258,47 @@ actionlint_yml_output="$FIXTURE/actionlint-yml.bin"
 [[ ! -s "$actionlint_yml_output" ]] ||
     fail ".github/actionlint.yml must not expand scope without an explicit config-file contract"
 
+yamllint_repo="$FIXTURE/yamllint-repo"
+mkdir -p "$yamllint_repo/.github/workflows" "$yamllint_repo/config"
+git -C "$yamllint_repo" init -q
+git -C "$yamllint_repo" config user.email fixture@example.invalid
+git -C "$yamllint_repo" config user.name Fixture
+printf 'name: Unrelated\non: push\njobs: {}\n' >"$yamllint_repo/.github/workflows/unrelated.yml"
+printf 'name: unchanged\n' >"$yamllint_repo/config/unchanged.yaml"
+git -C "$yamllint_repo" add -- .
+yamllint_base_tree="$(git -C "$yamllint_repo" write-tree)"
+yamllint_base_commit="$(printf 'yamllint base\n' | git -C "$yamllint_repo" commit-tree "$yamllint_base_tree")"
+printf 'name: Changed\non: pull_request\njobs: {}\n' >"$yamllint_repo/.github/workflows/unrelated.yml"
+printf 'name: changed\n' >"$yamllint_repo/config/changed.yml"
+git -C "$yamllint_repo" add -- .github/workflows/unrelated.yml config/changed.yml
+yamllint_head_tree="$(git -C "$yamllint_repo" write-tree)"
+yamllint_head_commit="$(
+    printf 'yamllint head\n' |
+        git -C "$yamllint_repo" commit-tree "$yamllint_head_tree" -p "$yamllint_base_commit"
+)"
+yamllint_output="$FIXTURE/yamllint.bin"
+"$TARGETS" \
+    --repo "$yamllint_repo" \
+    --changed \
+    --base "$yamllint_base_commit" \
+    --head "$yamllint_head_commit" \
+    --kind yamllint >"$yamllint_output"
+assert_null_paths "$yamllint_output" "config/changed.yml"
+
+printf 'rules:\n  document-start: disable\n' >"$yamllint_repo/.yamllint.yml"
+git -C "$yamllint_repo" add -- .yamllint.yml
+yamllint_config_tree="$(git -C "$yamllint_repo" write-tree)"
+yamllint_config_commit="$(
+    printf 'yamllint config\n' |
+        git -C "$yamllint_repo" commit-tree "$yamllint_config_tree" -p "$yamllint_head_commit"
+)"
+yamllint_config_output="$FIXTURE/yamllint-config.bin"
+"$TARGETS" \
+    --repo "$yamllint_repo" \
+    --changed \
+    --base "$yamllint_head_commit" \
+    --head "$yamllint_config_commit" \
+    --kind yamllint >"$yamllint_config_output"
+assert_null_paths "$yamllint_config_output" ".yamllint.yml" "config/changed.yml" "config/unchanged.yaml"
+
 printf 'PASS: quality gate targets\n'

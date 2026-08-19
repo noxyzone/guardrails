@@ -124,8 +124,9 @@ swift="$(has_targets swift)"
 text_spacing="$(has_targets text_spacing)"
 treefmt_non_swift="$(has_targets treefmt_non_swift)"
 typos="$(has_targets typos)"
+yamllint="$(has_targets yamllint)"
 ubuntu=false
-for needed in "$actionlint" "$eslint" "$localization" "$markdownlint" "$ruff" "$secretlint" "$shell" "$text_spacing" "$treefmt_non_swift" "$typos"; do
+for needed in "$actionlint" "$eslint" "$localization" "$markdownlint" "$ruff" "$secretlint" "$shell" "$text_spacing" "$treefmt_non_swift" "$typos" "$yamllint"; do
     if [[ "$needed" == true ]]; then
         ubuntu=true
     fi
@@ -145,5 +146,6 @@ done
     printf 'text_spacing=%s\n' "$text_spacing"
     printf 'treefmt_non_swift=%s\n' "$treefmt_non_swift"
     printf 'typos=%s\n' "$typos"
+    printf 'yamllint=%s\n' "$yamllint"
     printf 'ubuntu=%s\n' "$ubuntu"
 } >>"$output"

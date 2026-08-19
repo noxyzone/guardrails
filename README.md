@@ -20,6 +20,7 @@
 | ESLint       | `.github/workflows/eslint.yml`         | `*.js`、`*.cjs`、`*.mjs`、`*.ts`                           | ESLint指摘                                                                                 |
 | Ruff         | `.github/workflows/ruff.yml`           | `*.py`                                                     | Ruff指摘                                                                                   |
 | ast-grep     | `.github/workflows/ast-grep.yml`       | `*.swift`                                                  | Swift構造ルール（通知送信、管理外型extension、UIテスト環境判定、非仮想化一覧）             |
+| YAMLLint     | `.github/workflows/yamllint.yml`       | `*.yaml`、`*.yml`（`.github/workflows/`を除く）            | 重複キー、インデント崩れなどYAML構文・構造の問題                                           |
 | Shebang      | `.github/workflows/shebang.yml`        | shell script                                               | `#!/bin/bash`等を検出し、`#!/usr/bin/env bash`を要求                                       |
 | ShellCheck   | `.github/workflows/shellcheck.yml`     | zsh系を除くshell script                                    | ShellCheck指摘                                                                             |
 | LLMCLIStream | `.github/workflows/llm-cli-stream.yml` | zsh系を除くshell script                                    | LLM CLI等サブプロセス出力を`tee`でstdoutへ複製しオーケストレータのstdoutを浪費する垂れ流し |
@@ -77,7 +78,7 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
 - SecretLint
   symlinkと存在しないpathを除外します。
 - QualityGates
-  PRの変更ファイルを判定し、対象ファイル種別がないjobはskipします。Ubuntu側でActionlint、SecretLint、Treefmtの非Swift対象、TextSpacing、Typos、Localization、MarkdownLint、ESLint、Ruff、Shebang、ShellCheck、LLMCLIStreamを実行し、macOS側でast-grep、SwiftLint、SwiftFormatを実行します。最後に`quality_gates`jobで結果を集約します。Actionlintは`.github/workflows`直下の`.yml`と`.yaml`だけを読み、削除済みworkflowとサブディレクトリは対象にしません。
+  PRの変更ファイルを判定し、対象ファイル種別がないjobはskipします。Ubuntu側でActionlint、SecretLint、Treefmtの非Swift対象、TextSpacing、Typos、YAMLLint、Localization、MarkdownLint、ESLint、Ruff、Shebang、ShellCheck、LLMCLIStreamを実行し、macOS側でast-grep、SwiftLint、SwiftFormatを実行します。最後に`quality_gates`jobで結果を集約します。Actionlintは`.github/workflows`直下の`.yml`と`.yaml`だけを読み、削除済みworkflowとサブディレクトリは対象にしません。
 - Treefmt
   `treefmt.toml`に従います。現在は`.agents/skills/.system/**`、`artifacts/**`を除外します。GitHubActionsでは非Swift整形をUbuntuのTreefmt jobで実行し、SwiftFormatだけをmacOS jobへ分離します。repoローカルの`.swiftformat`は許可せず、共有`guardrails/.swiftformat`を使います。
 - TextSpacing
@@ -96,6 +97,8 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
   明示除外はありません。対象repo側のRuff設定があればそれに従います。
 - ast-grep
   `sgconfig.yml`と`ast-grep/*.yml`に従います。現在は`*.swift`を対象にします。
+- YAMLLint
+  `.yamllint.yml`に従います。`.github/workflows/`はactionlintの担当のため対象外にします。document-startとline-lengthは無効化し、TreefmtがPrettierで整形する`{ }`単一スペースのflow style（`braces`/`brackets`のmax-spaces-inside: 1）を許可します。重複キーなど実際のYAML構文・構造の問題は検出します。
 - Shebang
   明示除外はありません。
 - ShellCheck
@@ -121,3 +124,13 @@ CIとローカル環境は`bin/<platform>/`にGit LFSでcommitした同一バイ
 | `sgconfig.yml`            | ast-grep設定                |
 | `treefmt.toml`            | Treefmt設定                 |
 | `typos.toml`              | Typos設定                   |
+| `.yamllint.yml`           | YAMLLint設定                |
+
+## 検討したが見送ったゲート
+
+- taplo lint（TOML検証）
+  Treefmtが`*.toml`に対して`taplo format --check`を既に実行しており、構文が壊れたTOMLは同じエラーメッセージで既にfailします。別ゲートとして`taplo lint`を追加しても検出範囲が増えないため見送ります。
+- editorconfig-checker（`.editorconfig`準拠検証）
+  2026-08-19時点で、このゲートの対象になるいずれのrepoにも`.editorconfig`が存在しません。ツールは`.editorconfig`が無いと無条件PASSする仕様のため、今追加しても実質no-opです。改行・末尾空白・インデントはTreefmt（Prettier/SwiftFormat/shfmt）が既に整形しています。いずれかのrepoが`.editorconfig`を採用する具体的な必要が出た時点で再検討します。
+- 秘密情報スキャン特化ゲート（gitleaks・trufflehog）
+  PR時はSecretLintが平文secretの混入を既に検出し、履歴側は`scripts/guardrails/github-repositories-gitleaks-check.sh`（gitleaks、nocturnalzone repo側）が別途カバーしています。3つ目の重複ゲートを追加する明確な責務差分がないため見送ります。

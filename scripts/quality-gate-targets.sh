@@ -14,7 +14,7 @@ usage: quality-gate-targets.sh --repo PATH (--staged | --changed --base SHA --he
 
 Writes matching paths as a NUL-delimited stream. KIND is one of:
   any actionlint ast_grep eslint localization markdownlint ruff secretlint shell
-  swift text_spacing treefmt_non_swift typos
+  swift text_spacing treefmt_non_swift typos yamllint
 USAGE
     exit 2
 }
@@ -69,7 +69,7 @@ done
 
 [[ -n "$repo" && -n "$mode" && -n "$kind" ]] || usage
 case "$kind" in
-any | actionlint | ast_grep | eslint | localization | markdownlint | ruff | secretlint | shell | swift | text_spacing | treefmt_non_swift | typos) ;;
+any | actionlint | ast_grep | eslint | localization | markdownlint | ruff | secretlint | shell | swift | text_spacing | treefmt_non_swift | typos | yamllint) ;;
 *) usage ;;
 esac
 if [[ "$mode" == "changed" && (-z "$base" || -z "$head") ]]; then
@@ -153,7 +153,8 @@ is_scope_expansion_path() {
         shell:.shellcheckrc | \
         swift:.swiftformat | swift:.swiftlint.yml | swift:swiftlint.yml | \
         treefmt_non_swift:.editorconfig | treefmt_non_swift:.prettierignore | treefmt_non_swift:.prettierrc* | treefmt_non_swift:prettier.config.* | treefmt_non_swift:treefmt.toml | \
-        typos:_typos.toml | typos:.typos.toml | typos:typos.toml)
+        typos:_typos.toml | typos:.typos.toml | typos:typos.toml | \
+        yamllint:.yamllint | yamllint:.yamllint.yml | yamllint:.yamllint.yaml)
         return 0
         ;;
     esac
@@ -196,6 +197,7 @@ matches_kind() {
         ;;
     text_spacing) [[ "$path" =~ \.(css|html|json|jsonc|md|toml|txt|xcstrings|yaml|yml)$ ]] ;;
     treefmt_non_swift) [[ "$path" =~ \.(cjs|css|entitlements|html|ipynb|js|json|jsonc|md|mjs|plist|py|sh|svg|toml|ts|tsx|xcscheme|xcstrings|xctestplan|xcworkspacedata|xml|xsd|yaml|yml)$ ]] ;;
+    yamllint) [[ "$path" =~ \.(yaml|yml)$ && ! "$path" =~ ^\.github/workflows/ ]] ;;
     esac
 }
 

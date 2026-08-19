@@ -32,6 +32,7 @@ jobs:
       text_spacing: ${{ steps.changed.outputs.text_spacing }}
       treefmt_non_swift: ${{ steps.changed.outputs.treefmt_non_swift }}
       typos: ${{ steps.changed.outputs.typos }}
+      yamllint: ${{ steps.changed.outputs.yamllint }}
       ubuntu: ${{ steps.changed.outputs.ubuntu }}
     steps:
       - name: Checkout repository
@@ -116,7 +117,7 @@ jobs:
           done <"$scope_args_file"
           target_dir="$RUNNER_TEMP/quality-gate-targets"
           mkdir -p "$target_dir"
-          for kind in actionlint secretlint treefmt_non_swift text_spacing typos localization markdownlint eslint ruff shell; do
+          for kind in actionlint secretlint treefmt_non_swift text_spacing typos yamllint localization markdownlint eslint ruff shell; do
             .guardrails/scripts/quality-gate-targets.sh \
               --repo "$GITHUB_WORKSPACE" \
               "${scope_args[@]}" \
@@ -171,6 +172,15 @@ jobs:
           tar xzf "$typos_tmp/typos.tar.gz" -C "$typos_tmp"
           sudo install "$typos_tmp/typos" /usr/local/bin/typos
 
+      - name: Install yamllint
+        if: ${{ needs.detect_changes.outputs.yamllint == 'true' }}
+        run: |
+          set -euo pipefail
+
+          pipx install "yamllint==1.38.0"
+          yamllint_version="$(yamllint --version)"
+          [[ "$yamllint_version" == "yamllint 1.38.0" ]]
+
       - name: Run actionlint
         if: ${{ needs.detect_changes.outputs.actionlint == 'true' }}
         run: |
@@ -215,6 +225,15 @@ jobs:
           typos_files="$RUNNER_TEMP/quality-gate-targets/typos.txt"
           tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/typos.bin" >"$typos_files"
           .guardrails/scripts/typos-check.sh --files-from "$typos_files" --repo "$GITHUB_WORKSPACE"
+
+      - name: Run YAMLLint
+        if: ${{ needs.detect_changes.outputs.yamllint == 'true' }}
+        run: |
+          set -euo pipefail
+
+          yamllint_files="$RUNNER_TEMP/quality-gate-targets/yamllint.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/yamllint.bin" >"$yamllint_files"
+          .guardrails/scripts/yamllint-check.sh --files-from "$yamllint_files" --repo "$GITHUB_WORKSPACE"
 
       - name: Run Localization
         if: ${{ needs.detect_changes.outputs.localization == 'true' }}
