@@ -1,0 +1,165 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  unit_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Install apt tools
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y jq ripgrep shellcheck
+
+      - name: Run fixture-only tests
+        run: |
+          set -euo pipefail
+
+          # ast-grep/treefmt-real-tools/typos-config/yamllint-config need real
+          # vendored tool binaries and run in the real_tool_tests job instead.
+          # Any other tests/*.sh added later is picked up here by default; if it
+          # actually needs a real tool it will fail loudly with a "command not
+          # found" error rather than being silently skipped.
+          status=0
+          for test_script in tests/*.sh; do
+            case "$test_script" in
+            tests/ast-grep-no-derived-count-property-test.sh | \
+              tests/treefmt-real-tools-test.sh | \
+              tests/typos-config-test.sh | \
+              tests/yamllint-config-test.sh)
+              continue
+              ;;
+            esac
+            echo "::group::$test_script"
+            if ! bash "$test_script"; then
+              echo "::error::$test_script failed"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
+
+  real_tool_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Install apt tools
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y jq ripgrep
+
+      - name: Prepare vendored tools
+        run: |
+          set -euo pipefail
+
+          chmod +x bin/linux-x86_64/*
+          printf '%s\n' "$GITHUB_WORKSPACE/bin/linux-x86_64" >>"$GITHUB_PATH"
+          printf '%s\n' "$GITHUB_WORKSPACE/.github/quality-gates/node_modules/.bin" >>"$GITHUB_PATH"
+          [[ "$(bin/linux-x86_64/treefmt --version)" == "treefmt v2.5.0" ]]
+          [[ "$(bin/linux-x86_64/shfmt --version)" == "v3.13.1" ]]
+          [[ "$(bin/linux-x86_64/taplo --version)" == "taplo 0.10.0" ]]
+          [[ "$(bin/linux-x86_64/ruff --version)" == "ruff 0.15.22" ]]
+
+      - name: Install Typos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          typos_tmp="$(mktemp -d)"
+          gh release download v1.48.0 --repo crate-ci/typos --pattern typos-v1.48.0-x86_64-unknown-linux-musl.tar.gz --output "$typos_tmp/typos.tar.gz"
+          printf '%s  %s\n' '72a930c9a94fc3914aa56835c5b859c892a797d40c1c42638b98d93f16ff519c' "$typos_tmp/typos.tar.gz" | sha256sum --check --strict
+          tar xzf "$typos_tmp/typos.tar.gz" -C "$typos_tmp"
+          sudo install "$typos_tmp/typos" /usr/local/bin/typos
+
+      - name: Install yamllint
+        run: |
+          set -euo pipefail
+
+          pipx install "yamllint==1.38.0"
+          yamllint_version="$(yamllint --version)"
+          [[ "$yamllint_version" == "yamllint 1.38.0" ]]
+
+      - name: Install ast-grep
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          ast_grep_tmp="$(mktemp -d)"
+          gh release download 0.44.1 --repo ast-grep/ast-grep --pattern app-x86_64-unknown-linux-gnu.zip --output "$ast_grep_tmp/ast-grep.zip"
+          printf '%s  %s\n' '611f9e5e76f2611ecea1a35dd3468ceedf600641a11224b80341d79c6ee7b9dd' "$ast_grep_tmp/ast-grep.zip" | sha256sum --check --strict
+          unzip -q "$ast_grep_tmp/ast-grep.zip" -d "$ast_grep_tmp/ast-grep"
+          sudo install "$ast_grep_tmp/ast-grep/ast-grep" /usr/local/bin/ast-grep
+          sudo install "$ast_grep_tmp/ast-grep/sg" /usr/local/bin/sg
+          ast_grep_version="$(ast-grep --version)"
+          if [[ "$ast_grep_version" != "ast-grep 0.44.1" ]]; then
+            echo "::error::ast-grep version mismatch: expected 0.44.1, got $ast_grep_version"
+            exit 1
+          fi
+
+      - name: Run real-tool integration tests
+        run: |
+          set -euo pipefail
+
+          status=0
+          for test_script in \
+            tests/ast-grep-no-derived-count-property-test.sh \
+            tests/treefmt-real-tools-test.sh \
+            tests/typos-config-test.sh \
+            tests/yamllint-config-test.sh; do
+            echo "::group::$test_script"
+            if ! bash "$test_script"; then
+              echo "::error::$test_script failed"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
+
+  tests:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - unit_tests
+      - real_tool_tests
+    permissions:
+      contents: read
+    steps:
+      - name: Confirm test jobs
+        run: |
+          set -euo pipefail
+
+          for result in "${{ needs.unit_tests.result }}" "${{ needs.real_tool_tests.result }}"; do
+            if [[ "$result" != "success" ]]; then
+              echo "::error::test job did not succeed: $result"
+              exit 1
+            fi
+          done
+          echo "All tests/*.sh passed"

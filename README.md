@@ -106,6 +106,15 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
 - LLMCLIStream
   `*/zsh/*`とzsh判定されたshell scriptを除外し、`contrib/`、`vendor/`、`node_modules/`、`.claude/plugins/`、`plugins/cache/`配下を対象外にします。`printf`・`echo`・`sed`等の小出力producerと、`>/dev/null`で無音化したtee、`# guardrail-allow: llm-cli-stream`付き行は除外します。
 
+## テスト実行
+
+`tests/*.sh`はguardrails自身の確定テストで、`.github/workflows/tests.yml`（push/PR起動、reusable workflowではない）がCIで実行します。fake toolによるwrapper挙動検証（timeout、引数生成、config分岐）と、実物の`treefmt`/`shfmt`/`prettier`/`typos`/`yamllint`/`ast-grep`を使った統合確認は別jobに分離しており、fixture-onlyの成功を統合確認の成功として扱いません。
+
+- `unit_tests`: `tests/*.sh`のうちfake toolや`rg`/`jq`だけで完結するものを実行します。
+- `real_tool_tests`: `ast-grep-no-derived-count-property-test.sh`、`treefmt-real-tools-test.sh`、`typos-config-test.sh`、`yamllint-config-test.sh`を対象に、vendored binary（`bin/linux-x86_64/`、`.github/quality-gates/node_modules/`）とCI都度DLする`typos`/`yamllint`/`ast-grep`を用意してから実行します。
+
+新しい`tests/*.sh`を追加した場合、実物ツールが必要なら`.github/workflows/tests.yml`の`real_tool_tests`側の一覧へ追加してください。追加を忘れても`unit_tests`側でcommand not foundとして失敗するため、無言でスキップされることはありません。
+
 ## Vendoredツール
 
 CIとローカル環境は`bin/<platform>/`にGit LFSでcommitした同一バイナリを使います。バージョン、公式配布元、配布物とバイナリのSHA-256、ライセンスpathは`config/vendored-tools.tsv`を正本とします。現在、macOS向けSwiftLint 0.63.2をvendoredツールとして管理します。
