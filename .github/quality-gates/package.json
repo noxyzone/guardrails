@@ -1,0 +1,16 @@
+{
+  "name": "nocturnalzone-guardrails-quality-gates",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "@prettier/plugin-xml": "3.4.2",
+    "markdownlint-cli2": "0.23.1",
+    "prettier": "3.9.4",
+    "prettier-plugin-go-template": "0.0.15",
+    "prettier-plugin-sh": "0.18.1",
+    "prettier-plugin-toml": "2.0.6"
+  },
+  "overrides": {
+    "js-yaml": "5.2.2"
+  }
+}
