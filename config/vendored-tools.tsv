@@ -1,0 +1,2 @@
+tool	platform	version	source_url	asset_sha256	binary_sha256	license_path
+swiftlint	macos-arm64	0.63.2	https://github.com/realm/SwiftLint/releases/download/0.63.2/portable_swiftlint.zip	c59a405c85f95b92ced677a500804e081596a4cae4a6a485af76065557d6ed29	2991cdee904be388d6d15e9cea560c3d6b0d8c009462b8261ed608709b7712c7	licenses/swiftlint.txt
