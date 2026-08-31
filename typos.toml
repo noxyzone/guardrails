@@ -1,0 +1,44 @@
+[files]
+extend-exclude = [
+  "**/*.app/",
+  ".agents/skills/aidlc*/",
+  ".claude/cache/",
+  ".claude/plans/",
+  ".claude/plugins/",
+  ".claude/projects/",
+  ".claude/shell-snapshots/",
+  ".claude/todos/",
+  ".config/karabiner/",
+  ".config/wezterm/colors/NocturnalZone.toml",
+  ".config/zed/themes/nocturnalzone.json",
+  ".codex/cache/",
+  ".codex/agents/aidlc-*/",
+  ".codex/aidlc-common/",
+  ".codex/hooks/aidlc-*",
+  ".codex/knowledge/aidlc-*/",
+  ".codex/scopes/aidlc-*/",
+  ".codex/sensors/aidlc-*",
+  ".codex/tools/aidlc-*",
+  ".codex/tools/data/",
+  "aidlc/spaces/",
+  "artifacts/",
+  "contrib/",
+  "node_modules/",
+  "pipedream/html/",
+  "Vendor/",
+]
+
+[default]
+check-filename = true
+check-file = true
+extend-ignore-re = ["[0-9a-f]{7,40}"]
+
+[default.extend-identifiers]
+ND = "ND"
+# Xcodeテーマの実キー名。Apple側の綴りが"Exectuable"のため修正できない。
+DVTConsoleExectuableInputTextColor = "DVTConsoleExectuableInputTextColor"
+DVTConsoleExectuableOutputTextColor = "DVTConsoleExectuableOutputTextColor"
+
+[default.extend-words]
+reviewr = "reviewr"
+runn = "runn"

@@ -1,0 +1,6 @@
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "noxyzone/guardrails/*": ref-pin
+        "*": hash-pin

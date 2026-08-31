@@ -1,0 +1,41 @@
+name: SwiftLint
+
+on:
+  workflow_call:
+
+jobs:
+  swiftlint:
+    runs-on: macos-15
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Checkout guardrails
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: noxyzone/guardrails
+          ref: main
+          path: .guardrails
+          persist-credentials: false
+          lfs: true
+
+      - name: Verify vendored SwiftLint version
+        run: |
+          set -euo pipefail
+
+          chmod +x .guardrails/bin/macos-arm64/swiftlint
+          [[ "$(.guardrails/bin/macos-arm64/swiftlint version)" == "0.63.2" ]]
+
+      - name: Run SwiftLint
+        run: |
+          set -euo pipefail
+
+          export PATH="$GITHUB_WORKSPACE/.guardrails/bin/macos-arm64:/usr/bin:/bin"
+          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
+          if [ -n "$swift_files" ]; then
+            printf '%s\n' "$swift_files" | xargs swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml
+          fi

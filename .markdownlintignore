@@ -1,0 +1,16 @@
+node_modules/
+public/
+tmp/
+.superpowers/
+.takt/
+.build/
+build/
+DerivedData/
+artifacts/
+.aidlc-rule-details/
+aidlc-docs/
+.agents/skills/.system/
+.agents/skills/openai-curated-*/
+Vendor/BundledGit/build/
+Vendor/BundledGit/cache/
+scripts/delete-all-deployments/

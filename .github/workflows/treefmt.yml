@@ -1,0 +1,124 @@
+name: Treefmt
+
+on:
+  workflow_call:
+
+jobs:
+  treefmt-non-swift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Checkout guardrails
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: noxyzone/guardrails
+          ref: main
+          path: .guardrails
+          persist-credentials: false
+          lfs: true
+
+      - name: Verify vendored tool versions
+        run: |
+          set -euo pipefail
+
+          chmod +x .guardrails/bin/linux-x86_64/*
+          [[ "$(.guardrails/bin/linux-x86_64/treefmt --version)" == "treefmt v2.5.0" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/shfmt --version)" == "v3.13.1" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/taplo --version)" == "taplo 0.10.0" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/ruff --version)" == "ruff 0.15.22" ]]
+
+      - name: Verify shared formatter config links
+        run: |
+          set -euo pipefail
+
+          if git ls-files --error-unmatch .swiftformat >/dev/null 2>&1; then
+            echo "::error file=.swiftformat::.swiftformat must not be tracked. Shared SwiftFormat config is provided by noxyzone/guardrails."
+            exit 1
+          fi
+
+      - name: Run Treefmt
+        run: |
+          set -euo pipefail
+
+          export PATH="$GITHUB_WORKSPACE/.guardrails/bin/linux-x86_64:$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin:/usr/local/bin:/usr/bin:/bin"
+          .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE"
+
+  swiftformat:
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Checkout guardrails
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: noxyzone/guardrails
+          ref: main
+          path: .guardrails
+          persist-credentials: false
+          lfs: true
+
+      - name: Verify vendored SwiftFormat version
+        run: |
+          set -euo pipefail
+
+          chmod +x .guardrails/bin/macos-arm64/swiftformat
+          [[ "$(.guardrails/bin/macos-arm64/swiftformat --version)" == "0.61.1" ]]
+
+      - name: Verify shared formatter config links
+        run: |
+          set -euo pipefail
+
+          if git ls-files --error-unmatch .swiftformat >/dev/null 2>&1; then
+            echo "::error file=.swiftformat::.swiftformat must not be tracked. Shared SwiftFormat config is provided by noxyzone/guardrails."
+            exit 1
+          fi
+
+      - name: Run SwiftFormat
+        run: |
+          set -euo pipefail
+
+          export PATH="$GITHUB_WORKSPACE/.guardrails/bin/macos-arm64:/usr/bin:/bin"
+          swift_files="$(git ls-files '*.swift' ':!:DerivedData/**' ':!:.build/**' ':!:build/**')"
+          if [ -n "$swift_files" ]; then
+            printf '%s\n' "$swift_files" | xargs swiftformat --lint --config .guardrails/.swiftformat
+          fi
+
+  treefmt:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - treefmt-non-swift
+      - swiftformat
+    permissions:
+      contents: read
+
+    steps:
+      - name: Confirm formatter jobs
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ needs.treefmt-non-swift.result }}" != "success" ]]; then
+            echo "::error::treefmt-non-swift job did not succeed"
+            exit 1
+          fi
+          if [[ "${{ needs.swiftformat.result }}" != "success" ]]; then
+            echo "::error::swiftformat job did not succeed"
+            exit 1
+          fi
+          echo "Treefmt and SwiftFormat checks completed"

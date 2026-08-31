@@ -1,0 +1,27 @@
+name: LLMCLIStream
+
+on:
+  workflow_call:
+
+jobs:
+  llm-cli-stream:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Checkout guardrails
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          repository: noxyzone/guardrails
+          ref: main
+          path: .guardrails
+
+      - name: Check LLM CLI stdout streaming
+        run: |
+          .guardrails/scripts/llm-cli-stream-check.sh --all --repo "$GITHUB_WORKSPACE"

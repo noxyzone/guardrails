@@ -1,0 +1,35 @@
+# prettierがパーサーを持たないファイル形式
+*.png
+*.svg
+
+# Xcodeプロジェクトファイル（構造が複雑でフォーマット不可）
+*.appiconset
+*.colorset
+*.pbxproj
+
+# MCPメモリサーバーが出力するJSONL形式ファイル
+.secretary/knowledge.json
+
+# 配布アプリbundle
+**/*.app/**
+
+# ローカルruntime状態
+**/.config/karabiner/**
+
+# テーマ配備物
+**/.config/zed/themes/nocturnalzone.json
+
+# 生成物
+**/knowledge/wiki/state.json
+
+# AIDLC配布・生成物
+**/.aidlc-rule-details/**
+**/aidlc-docs/**
+
+# OpenAI公式skill配布物
+**/.agents/skills/.system/**
+**/.agents/skills/openai-curated-*/**
+
+# Vendored formatter binaries/dependencies
+bin/**
+.github/quality-gates/node_modules/**

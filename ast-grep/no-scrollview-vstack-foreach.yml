@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: no-scrollview-vstack-foreach
+message: 大量化し得る一覧にScrollView+VStack+ForEachを使わない。ListまたはLazyVStackを使う。
+severity: error
+language: Swift
+rule:
+  pattern: |
+    ScrollView {
+      VStack {
+        ForEach($$$ITEMS) { $$$BODY }
+      }
+    }

@@ -1,0 +1,20 @@
+# SwiftFormat Configuration
+# Swift 6 / TCAプロジェクト用
+
+--swiftversion 6.0
+--exclude DerivedData,.build,build
+
+# Format options
+--indent 4
+--maxwidth none
+--wraparguments before-first
+--wrapcollections before-first
+--wrapparameters before-first
+--commas inline
+--trimwhitespace always
+--header ignore
+
+# Disabled rules
+--disable redundantSelf
+--disable unusedArguments
+--disable wrapMultilineStatementBraces

@@ -1,0 +1,554 @@
+name: QualityGates
+
+on:
+  workflow_call:
+    inputs:
+      scope:
+        description: File scope for quality gates. Use changed for PRs and all for scheduled or release backstops.
+        required: false
+        default: changed
+        type: string
+
+jobs:
+  detect_changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      actionlint: ${{ steps.changed.outputs.actionlint }}
+      ast_grep: ${{ steps.changed.outputs.ast_grep }}
+      gitleaks: ${{ steps.changed.outputs.gitleaks }}
+      localization: ${{ steps.changed.outputs.localization }}
+      markdownlint: ${{ steps.changed.outputs.markdownlint }}
+      osv: ${{ steps.changed.outputs.osv }}
+      oxlint: ${{ steps.changed.outputs.oxlint }}
+      ruff: ${{ steps.changed.outputs.ruff }}
+      shell: ${{ steps.changed.outputs.shell }}
+      swift: ${{ steps.changed.outputs.swift }}
+      text_spacing: ${{ steps.changed.outputs.text_spacing }}
+      treefmt_non_swift: ${{ steps.changed.outputs.treefmt_non_swift }}
+      typos: ${{ steps.changed.outputs.typos }}
+      yamllint: ${{ steps.changed.outputs.yamllint }}
+      zizmor: ${{ steps.changed.outputs.zizmor }}
+      ubuntu: ${{ steps.changed.outputs.ubuntu }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Checkout guardrails
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: noxyzone/guardrails
+          ref: main
+          path: .guardrails
+          persist-credentials: false
+
+      - name: Detect changed files
+        id: changed
+        env:
+          SCOPE_INPUT: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          scope_args_file="$RUNNER_TEMP/quality-gate-scope-args.bin"
+          .guardrails/scripts/quality-gate-scope-args.sh \
+            --scope "$SCOPE_INPUT" \
+            --event-name "${{ github.event_name }}" \
+            --base "$base_sha" \
+            --head "$head_sha" >"$scope_args_file"
+          scope_args=()
+          while IFS= read -r -d '' scope_arg; do
+            scope_args+=("$scope_arg")
+          done <"$scope_args_file"
+          .guardrails/scripts/quality-gate-change-detection.sh \
+            --repo "$GITHUB_WORKSPACE" \
+            "${scope_args[@]}" \
+            --output "$GITHUB_OUTPUT"
+
+  ubuntu_guardrails:
+    if: ${{ needs.detect_changes.outputs.ubuntu == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - detect_changes
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Checkout guardrails
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: noxyzone/guardrails
+          ref: main
+          path: .guardrails
+          persist-credentials: false
+          lfs: true
+
+      - name: Prepare changed-file targets
+        env:
+          SCOPE_INPUT: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          scope_args_file="$RUNNER_TEMP/quality-gate-scope-args.bin"
+          .guardrails/scripts/quality-gate-scope-args.sh \
+            --scope "$SCOPE_INPUT" \
+            --event-name "${{ github.event_name }}" \
+            --base "$base_sha" \
+            --head "$head_sha" >"$scope_args_file"
+          scope_args=()
+          while IFS= read -r -d '' scope_arg; do
+            scope_args+=("$scope_arg")
+          done <"$scope_args_file"
+          target_dir="$RUNNER_TEMP/quality-gate-targets"
+          mkdir -p "$target_dir"
+          for kind in actionlint zizmor gitleaks treefmt_non_swift text_spacing typos yamllint localization markdownlint oxlint osv ruff shell; do
+            .guardrails/scripts/quality-gate-targets.sh \
+              --repo "$GITHUB_WORKSPACE" \
+              "${scope_args[@]}" \
+              --kind "$kind" >"$target_dir/$kind.bin"
+          done
+
+      - name: Install apt tools
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y jq shellcheck
+
+      - name: Prepare vendored tools
+        run: |
+          set -euo pipefail
+
+          chmod +x .guardrails/bin/linux-x86_64/*
+          printf '%s\n' "$GITHUB_WORKSPACE/.guardrails/bin/linux-x86_64" >> "$GITHUB_PATH"
+          printf '%s\n' "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin" >> "$GITHUB_PATH"
+          [[ "$(.guardrails/bin/linux-x86_64/treefmt --version)" == "treefmt v2.5.0" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/shfmt --version)" == "v3.13.1" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/taplo --version)" == "taplo 0.10.0" ]]
+          [[ "$(.guardrails/bin/linux-x86_64/ruff --version)" == "ruff 0.15.22" ]]
+
+      - name: Install actionlint
+        if: ${{ needs.detect_changes.outputs.actionlint == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          actionlint_tmp="$(mktemp -d)"
+          gh release download v1.7.12 --repo rhysd/actionlint --pattern actionlint_1.7.12_linux_amd64.tar.gz --output "$actionlint_tmp/actionlint.tar.gz"
+          printf '%s  %s\n' '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' "$actionlint_tmp/actionlint.tar.gz" | sha256sum --check --strict
+          tar xzf "$actionlint_tmp/actionlint.tar.gz" -C "$actionlint_tmp"
+          sudo install "$actionlint_tmp/actionlint" /usr/local/bin/actionlint
+          actionlint_version="$(actionlint -version)"
+          actionlint_version="${actionlint_version%%$'\n'*}"
+          [[ "$actionlint_version" == "1.7.12" ]]
+
+      - name: Install zizmor
+        if: ${{ needs.detect_changes.outputs.zizmor == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          zizmor_tmp="$(mktemp -d)"
+          gh release download v1.29.0 --repo zizmorcore/zizmor --pattern zizmor-x86_64-unknown-linux-gnu.tar.gz --output "$zizmor_tmp/zizmor.tar.gz"
+          printf '%s  %s\n' 'dd96df044a6e8538d5f423790f453bdd03d49e5b2bcc38214acc41a2f1297839' "$zizmor_tmp/zizmor.tar.gz" | sha256sum --check --strict
+          tar xzf "$zizmor_tmp/zizmor.tar.gz" -C "$zizmor_tmp"
+          sudo install "$zizmor_tmp/zizmor" /usr/local/bin/zizmor
+          [[ "$(zizmor --version)" == "zizmor 1.29.0" ]]
+
+      - name: Install gitleaks
+        if: ${{ needs.detect_changes.outputs.gitleaks == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gitleaks_tmp="$(mktemp -d)"
+          gh release download v8.30.1 --repo gitleaks/gitleaks --pattern gitleaks_8.30.1_linux_x64.tar.gz --output "$gitleaks_tmp/gitleaks.tar.gz"
+          printf '%s  %s\n' '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb' "$gitleaks_tmp/gitleaks.tar.gz" | sha256sum --check --strict
+          tar xzf "$gitleaks_tmp/gitleaks.tar.gz" -C "$gitleaks_tmp"
+          sudo install "$gitleaks_tmp/gitleaks" /usr/local/bin/gitleaks
+          [[ "$(gitleaks version)" == "8.30.1" ]]
+
+      - name: Install OSV-Scanner
+        if: ${{ needs.detect_changes.outputs.osv == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          osv_tmp="$(mktemp -d)"
+          gh release download v2.5.1 --repo google/osv-scanner --pattern osv-scanner_linux_amd64 --output "$osv_tmp/osv-scanner"
+          printf '%s  %s\n' 'f9f25499a2c8cc367b3af45df2ea7eeca7fbccceab9c35079968f4b3652194be' "$osv_tmp/osv-scanner" | sha256sum --check --strict
+          sudo install "$osv_tmp/osv-scanner" /usr/local/bin/osv-scanner
+          osv_version="$(osv-scanner --version)"
+          osv_version="${osv_version%%$'\n'*}"
+          [[ "$osv_version" == "osv-scanner version: 2.5.1" ]]
+
+      - name: Install Oxlint
+        if: ${{ needs.detect_changes.outputs.oxlint == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          oxlint_tmp="$(mktemp -d)"
+          gh release download apps_v1.65.0 --repo oxc-project/oxc --pattern oxlint-x86_64-unknown-linux-gnu.tar.gz --output "$oxlint_tmp/oxlint.tar.gz"
+          printf '%s  %s\n' '3ee40ecd4355369c8f5b58ad3a9b6de6d0f048c2f23b17b806c6ae7bffda3896' "$oxlint_tmp/oxlint.tar.gz" | sha256sum --check --strict
+          tar xzf "$oxlint_tmp/oxlint.tar.gz" -C "$oxlint_tmp"
+          sudo install "$oxlint_tmp/oxlint-x86_64-unknown-linux-gnu" /usr/local/bin/oxlint
+          [[ "$(oxlint --version)" == "Version: 1.65.0" ]]
+
+      - name: Install Typos
+        if: ${{ needs.detect_changes.outputs.typos == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          typos_tmp="$(mktemp -d)"
+          gh release download v1.48.0 --repo crate-ci/typos --pattern typos-v1.48.0-x86_64-unknown-linux-musl.tar.gz --output "$typos_tmp/typos.tar.gz"
+          printf '%s  %s\n' '72a930c9a94fc3914aa56835c5b859c892a797d40c1c42638b98d93f16ff519c' "$typos_tmp/typos.tar.gz" | sha256sum --check --strict
+          tar xzf "$typos_tmp/typos.tar.gz" -C "$typos_tmp"
+          sudo install "$typos_tmp/typos" /usr/local/bin/typos
+
+      - name: Install yamllint
+        if: ${{ needs.detect_changes.outputs.yamllint == 'true' }}
+        run: |
+          set -euo pipefail
+
+          pipx install "yamllint==1.38.0"
+          yamllint_version="$(yamllint --version)"
+          [[ "$yamllint_version" == "yamllint 1.38.0" ]]
+
+      - name: Run actionlint
+        if: ${{ needs.detect_changes.outputs.actionlint == 'true' }}
+        run: |
+          set -euo pipefail
+
+          xargs -0 -r actionlint -shellcheck= -pyflakes= <"$RUNNER_TEMP/quality-gate-targets/actionlint.bin"
+
+      - name: Verify guardrails main references
+        if: ${{ needs.detect_changes.outputs.zizmor == 'true' }}
+        run: |
+          set -euo pipefail
+
+          .guardrails/scripts/guardrails-main-ref-check.sh --repo "$GITHUB_WORKSPACE" --files-from "$RUNNER_TEMP/quality-gate-targets/zizmor.bin"
+
+      - name: Run zizmor
+        if: ${{ needs.detect_changes.outputs.zizmor == 'true' }}
+        run: |
+          set -euo pipefail
+
+          xargs -0 -r zizmor --offline --no-progress --config .guardrails/.zizmor.yml -- <"$RUNNER_TEMP/quality-gate-targets/zizmor.bin"
+
+      - name: Run gitleaks
+        if: ${{ needs.detect_changes.outputs.gitleaks == 'true' }}
+        run: |
+          set -euo pipefail
+
+          gitleaks_files="$RUNNER_TEMP/quality-gate-targets/gitleaks.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/gitleaks.bin" >"$gitleaks_files"
+          .guardrails/scripts/gitleaks-check.sh --files-from "$gitleaks_files" --repo "$GITHUB_WORKSPACE"
+
+      - name: Run Treefmt
+        if: ${{ needs.detect_changes.outputs.treefmt_non_swift == 'true' }}
+        run: |
+          set -euo pipefail
+
+          targets="$RUNNER_TEMP/quality-gate-targets/treefmt_non_swift.bin"
+          if [[ -s "$targets" ]]; then
+            xargs -0 .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE" -- <"$targets"
+          fi
+
+      - name: Run TextSpacing
+        if: ${{ needs.detect_changes.outputs.text_spacing == 'true' }}
+        run: |
+          set -euo pipefail
+
+          text_spacing_files="$RUNNER_TEMP/quality-gate-targets/text_spacing.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/text_spacing.bin" >"$text_spacing_files"
+          .guardrails/scripts/text-spacing-check.sh --files-from "$text_spacing_files" --repo "$GITHUB_WORKSPACE"
+
+      - name: Run Typos
+        if: ${{ needs.detect_changes.outputs.typos == 'true' }}
+        run: |
+          set -euo pipefail
+
+          typos_files="$RUNNER_TEMP/quality-gate-targets/typos.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/typos.bin" >"$typos_files"
+          .guardrails/scripts/typos-check.sh --files-from "$typos_files" --repo "$GITHUB_WORKSPACE"
+
+      - name: Run YAMLLint
+        if: ${{ needs.detect_changes.outputs.yamllint == 'true' }}
+        run: |
+          set -euo pipefail
+
+          yamllint_files="$RUNNER_TEMP/quality-gate-targets/yamllint.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/yamllint.bin" >"$yamllint_files"
+          .guardrails/scripts/yamllint-check.sh --files-from "$yamllint_files" --repo "$GITHUB_WORKSPACE"
+
+      - name: Run Localization
+        if: ${{ needs.detect_changes.outputs.localization == 'true' }}
+        run: |
+          set -euo pipefail
+
+          localization_files="$RUNNER_TEMP/quality-gate-targets/localization.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/localization.bin" >"$localization_files"
+          .guardrails/scripts/localization-check.sh --files-from "$localization_files" --repo "$GITHUB_WORKSPACE"
+
+      - name: Run MarkdownLint
+        if: ${{ needs.detect_changes.outputs.markdownlint == 'true' }}
+        run: |
+          set -euo pipefail
+
+          markdownlint_ignore=".markdownlintignore"
+          if [ ! -f "$markdownlint_ignore" ]; then
+            markdownlint_ignore=".guardrails/.markdownlintignore"
+          fi
+          while IFS= read -r -d '' path; do
+                ignored=false
+                if [ -f "$markdownlint_ignore" ]; then
+                  while IFS= read -r pattern || [ -n "$pattern" ]; do
+                    [[ "$pattern" =~ ^#|^[[:space:]]*$ ]] && continue
+                    prefix="${pattern%/}"
+                    if [[ "$path" == "$prefix" || "$path" == "$prefix/"* ]]; then
+                      ignored=true
+                      break
+                    fi
+                  done < "$markdownlint_ignore"
+                fi
+            [ "$ignored" = true ] || printf '%s\0' "$path"
+          done <"$RUNNER_TEMP/quality-gate-targets/markdownlint.bin" \
+            | xargs -0 -r "$GITHUB_WORKSPACE/.guardrails/.github/quality-gates/node_modules/.bin/markdownlint-cli2" --config .guardrails/.markdownlint-cli2.yaml --
+
+      - name: Run Oxlint
+        if: ${{ needs.detect_changes.outputs.oxlint == 'true' }}
+        run: |
+          set -euo pipefail
+
+          xargs -0 -r oxlint -c .guardrails/.oxlintrc.json -- <"$RUNNER_TEMP/quality-gate-targets/oxlint.bin"
+
+      - name: Run OSV-Scanner
+        if: ${{ needs.detect_changes.outputs.osv == 'true' }}
+        run: |
+          set -euo pipefail
+
+          osv_files="$RUNNER_TEMP/quality-gate-targets/osv.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/osv.bin" >"$osv_files"
+          .guardrails/scripts/osv-scanner-check.sh --files-from "$osv_files" --repo "$GITHUB_WORKSPACE"
+
+      - name: Run Ruff
+        if: ${{ needs.detect_changes.outputs.ruff == 'true' }}
+        run: |
+          set -euo pipefail
+
+          xargs -0 -r ruff check -- <"$RUNNER_TEMP/quality-gate-targets/ruff.bin"
+
+      - name: Run Shebang
+        if: ${{ needs.detect_changes.outputs.shell == 'true' }}
+        run: |
+          set -euo pipefail
+
+          failed=0
+          while IFS= read -r -d '' file; do
+            if [[ "$file" == config/*.sh || "$file" == config/**/*.sh ]]; then
+              if [ ! -x "$file" ] && head -1 -- "$file" | grep -qE '^#!'; then
+                echo "[shebang] source用のconfig/*.shにはshebangを書かないでください: $file" >&2
+                failed=1
+                continue
+              fi
+            fi
+            if head -1 -- "$file" | grep -qE '^#!/(bin|usr/bin)/(bash|sh|zsh|ksh|dash)'; then
+              echo "[shebang] /usr/bin/envを使ってください: $file" >&2
+              failed=1
+            fi
+          done <"$RUNNER_TEMP/quality-gate-targets/shell.bin"
+          exit "$failed"
+
+      - name: Run ShellCheck
+        if: ${{ needs.detect_changes.outputs.shell == 'true' }}
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r -d '' path; do
+            if [[ "$path" == *.sh ]] && [[ "$path" != */zsh/* ]]; then
+              printf '%s\0' "$path"
+            elif [ -f "$path" ] && file -- "$path" | grep -q 'shell script' && file -- "$path" | grep -qv 'zsh'; then
+              printf '%s\0' "$path"
+            fi
+          done <"$RUNNER_TEMP/quality-gate-targets/shell.bin" | xargs -0 -r shellcheck --
+
+      - name: Run LLMCLIStream
+        if: ${{ needs.detect_changes.outputs.shell == 'true' }}
+        run: |
+          set -euo pipefail
+
+          llm_cli_stream_files="$RUNNER_TEMP/quality-gate-targets/llm-cli-stream.txt"
+          tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/shell.bin" >"$llm_cli_stream_files"
+          .guardrails/scripts/llm-cli-stream-check.sh --files-from "$llm_cli_stream_files" --repo "$GITHUB_WORKSPACE"
+
+  macos_guardrails:
+    if: ${{ needs.detect_changes.outputs.swift == 'true' || needs.detect_changes.outputs.ast_grep == 'true' }}
+    runs-on: macos-15
+    timeout-minutes: 10
+    needs:
+      - detect_changes
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Checkout guardrails
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: noxyzone/guardrails
+          ref: main
+          path: .guardrails
+          persist-credentials: false
+          lfs: true
+
+      - name: Prepare changed-file targets
+        env:
+          SCOPE_INPUT: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          scope_args_file="$RUNNER_TEMP/quality-gate-scope-args.bin"
+          .guardrails/scripts/quality-gate-scope-args.sh \
+            --scope "$SCOPE_INPUT" \
+            --event-name "${{ github.event_name }}" \
+            --base "$base_sha" \
+            --head "$head_sha" >"$scope_args_file"
+          scope_args=()
+          while IFS= read -r -d '' scope_arg; do
+            scope_args+=("$scope_arg")
+          done <"$scope_args_file"
+          target_dir="$RUNNER_TEMP/quality-gate-targets"
+          mkdir -p "$target_dir"
+          for kind in ast_grep swift; do
+            .guardrails/scripts/quality-gate-targets.sh \
+              --repo "$GITHUB_WORKSPACE" \
+              "${scope_args[@]}" \
+              --kind "$kind" >"$target_dir/$kind.bin"
+          done
+
+      - name: Install ast-grep
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SWIFT_TOOLS_BIN: ${{ runner.temp }}/swift-tools-bin
+        run: |
+          set -euo pipefail
+
+          swift_tools_tmp="$(mktemp -d)"
+          mkdir -p "$SWIFT_TOOLS_BIN"
+          gh release download 0.44.1 --repo ast-grep/ast-grep --pattern app-aarch64-apple-darwin.zip --output "$swift_tools_tmp/ast-grep.zip"
+          printf '%s  %s\n' '0a2fef273b0ff1238b8307add911714f92021d25b919fa3ec9b6b2e046bb29cf' "$swift_tools_tmp/ast-grep.zip" | shasum -a 256 -c -
+          unzip -q "$swift_tools_tmp/ast-grep.zip" -d "$swift_tools_tmp/ast-grep"
+          install "$swift_tools_tmp/ast-grep/ast-grep" "$SWIFT_TOOLS_BIN/ast-grep"
+          install "$swift_tools_tmp/ast-grep/sg" "$SWIFT_TOOLS_BIN/sg"
+          printf '%s\n' "$SWIFT_TOOLS_BIN" >> "$GITHUB_PATH"
+          ast_grep_version="$("$SWIFT_TOOLS_BIN/ast-grep" --version)"
+          if [[ "$ast_grep_version" != "ast-grep 0.44.1" ]]; then
+            echo "::error::ast-grep version mismatch: expected 0.44.1, got $ast_grep_version"
+            exit 1
+          fi
+
+      - name: Verify vendored Swift tool versions
+        run: |
+          set -euo pipefail
+
+          chmod +x .guardrails/bin/macos-arm64/swiftformat .guardrails/bin/macos-arm64/swiftlint
+          printf '%s\n' "$GITHUB_WORKSPACE/.guardrails/bin/macos-arm64" >> "$GITHUB_PATH"
+          [[ "$(.guardrails/bin/macos-arm64/swiftformat --version)" == "0.61.1" ]]
+          [[ "$(.guardrails/bin/macos-arm64/swiftlint version)" == "0.63.2" ]]
+
+      - name: Run ast-grep
+        if: ${{ needs.detect_changes.outputs.ast_grep == 'true' }}
+        run: |
+          set -euo pipefail
+
+          targets="$RUNNER_TEMP/quality-gate-targets/ast_grep.bin"
+          if [[ -s "$targets" ]]; then
+            xargs -0 ast-grep scan --config .guardrails/sgconfig.yml --report-style short -- <"$targets"
+          fi
+
+      - name: Run SwiftLint
+        run: |
+          set -euo pipefail
+
+          targets="$RUNNER_TEMP/quality-gate-targets/swift.bin"
+          if [[ -s "$targets" ]]; then
+            xargs -0 swiftlint lint --force-exclude --no-cache --config .guardrails/.swiftlint.yml -- <"$targets"
+          fi
+
+      - name: Verify shared formatter config links
+        run: |
+          set -euo pipefail
+
+          if git ls-files --error-unmatch .swiftformat >/dev/null 2>&1; then
+            echo "::error file=.swiftformat::.swiftformat must not be tracked. Shared SwiftFormat config is provided by noxyzone/guardrails."
+            exit 1
+          fi
+
+      - name: Run SwiftFormat
+        run: |
+          set -euo pipefail
+
+          targets="$RUNNER_TEMP/quality-gate-targets/swift.bin"
+          if [[ -s "$targets" ]]; then
+            while IFS= read -r -d '' path; do
+              printf './%s\0' "$path"
+            done <"$targets" | xargs -0 swiftformat --lint --config .guardrails/.swiftformat
+          fi
+
+  quality_gates:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - detect_changes
+      - ubuntu_guardrails
+      - macos_guardrails
+    permissions:
+      contents: read
+    steps:
+      - name: Confirm guardrail jobs
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ needs.detect_changes.result }}" != "success" ]]; then
+            echo "::error::detect-changes job did not succeed"
+            exit 1
+          fi
+          for result in "${{ needs.ubuntu_guardrails.result }}" "${{ needs.macos_guardrails.result }}"; do
+            case "$result" in
+              success|skipped) ;;
+              *)
+                echo "::error::guardrail job did not succeed: $result"
+                exit 1
+                ;;
+            esac
+          done
+          echo "Quality gates completed"

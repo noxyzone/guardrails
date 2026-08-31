@@ -1,0 +1,72 @@
+[formatter.prettier]
+command = "prettier"
+options = ["--config", ".guardrails/prettier.cjs", "--write"]
+excludes = [
+  "**/*.app/**",
+  ".aidlc-rule-details/**",
+  ".agents/skills/.system/**",
+  ".agents/skills/openai-curated-*/**",
+  ".config/karabiner/**",
+  ".config/wezterm/colors/NocturnalZone.toml",
+  ".config/zed/themes/nocturnalzone.json",
+  "aidlc-docs/**",
+  "artifacts/**",
+  "knowledge/wiki/state.json",
+]
+includes = [
+  "*.cjs",
+  "*.css",
+  "*.entitlements",
+  "*.html",
+  "*.ipynb",
+  "*.js",
+  "*.json",
+  "*.jsonc",
+  "*.md",
+  "*.mjs",
+  "*.plist",
+  "*.svg",
+  "*.ts",
+  "*.tsx",
+  "*.xcscheme",
+  "*.xcstrings",
+  "*.xctestplan",
+  "*.xcworkspacedata",
+  "*.xml",
+  "*.xsd",
+  "*.yaml",
+  "*.yml",
+]
+
+[formatter.shfmt]
+command = "shfmt"
+options = [
+  "-ln",
+  "auto",
+  "-i",
+  "4",
+  "-bn=false",
+  "-ci=false",
+  "-sr=false",
+  "-kp=false",
+  "-fn=false",
+  "--apply-ignore=false",
+  "-w",
+]
+excludes = ["config/zsh/**"]
+includes = ["*.sh"]
+
+[formatter.ruff]
+command = "ruff"
+options = ["format"]
+includes = ["*.py"]
+
+[formatter.taplo]
+command = "taplo"
+options = ["format"]
+includes = ["*.toml"]
+
+[formatter.swiftformat]
+command = "swiftformat"
+options = ["--config", ".guardrails/.swiftformat"]
+includes = ["*.swift"]

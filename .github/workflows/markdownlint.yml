@@ -1,0 +1,45 @@
+name: MarkdownLint
+
+on:
+  workflow_call:
+
+jobs:
+  markdownlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Checkout guardrails
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          repository: noxyzone/guardrails
+          ref: main
+          path: .guardrails
+
+      - name: Install quality gate dependencies
+        run: npm ci --prefix .guardrails/.github/quality-gates
+
+      - name: Run MarkdownLint
+        run: |
+          markdown_files="$(git ls-files '*.md')"
+          markdownlint_ignore=".markdownlintignore"
+          if [ ! -f "$markdownlint_ignore" ]; then
+            markdownlint_ignore=".guardrails/.markdownlintignore"
+          fi
+          if [ -f "$markdownlint_ignore" ]; then
+            while IFS= read -r pattern || [ -n "$pattern" ]; do
+              [[ "$pattern" =~ ^#|^[[:space:]]*$ ]] && continue
+              markdown_files="$(printf '%s\n' "$markdown_files" | grep -v "^${pattern%/}" | grep -v "^${pattern%/}/" || true)"
+            done < "$markdownlint_ignore"
+          fi
+          if [ -n "$markdown_files" ]; then
+            printf '%s\n' "$markdown_files" \
+              | .guardrails/scripts/quality-gate-path-filter.sh --repo "$GITHUB_WORKSPACE" \
+              | xargs .guardrails/.github/quality-gates/node_modules/.bin/markdownlint-cli2 --config .guardrails/.markdownlint-cli2.yaml
+          fi

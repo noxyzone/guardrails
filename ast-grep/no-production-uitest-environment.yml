@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: no-production-uitest-environment
+message: 本番コードでUIテスト環境を判定しない。テスト差分はDependencyValuesやテストターゲット側に閉じ込める。
+severity: error
+language: Swift
+rule:
+  any:
+    - pattern: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"]
+    - pattern: ProcessInfo.processInfo.environment["UITEST_MODE"]
+    - pattern: ProcessInfo.processInfo.environment["UITEST_FIXTURE"]
+    - pattern: ProcessInfo.processInfo.environment["UI_TEST_MODE"]
+    - pattern: ProcessInfo.processInfo.environment["XCUI_TEST_MODE"]

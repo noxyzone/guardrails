@@ -1,0 +1,24 @@
+name: Localization
+
+on:
+  workflow_call:
+
+jobs:
+  localization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check Swift localization coverage
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          .guardrails/scripts/localization-check.sh --changed --base "$base_sha" --head "$head_sha" --repo "$GITHUB_WORKSPACE"

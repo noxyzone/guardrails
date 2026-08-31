@@ -1,0 +1,42 @@
+name: YAMLLint
+
+on:
+  workflow_call:
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Checkout guardrails
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          repository: noxyzone/guardrails
+          ref: main
+          path: .guardrails
+
+      - name: Install yamllint
+        run: |
+          set -euo pipefail
+
+          pipx install "yamllint==1.38.0"
+          yamllint_version="$(yamllint --version)"
+          [[ "$yamllint_version" == "yamllint 1.38.0" ]]
+
+      - name: Run YAMLLint
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          .guardrails/scripts/yamllint-check.sh --changed --base "$base_sha" --head "$head_sha" --repo "$GITHUB_WORKSPACE"

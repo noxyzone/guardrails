@@ -1,0 +1,17 @@
+[[rules]]
+id = "nocturnalzone-npm-access-token"
+description = "npm access token"
+regex = '''npm_[A-Za-z0-9]{36}'''
+keywords = ["npm_"]
+
+[[rules]]
+id = "nocturnalzone-github-classic-pat"
+description = "GitHub classic personal access token"
+regex = '''ghp_[A-Za-z0-9]{36}'''
+keywords = ["ghp_"]
+
+[[rules]]
+id = "nocturnalzone-password-assignment"
+description = "Password assigned directly in source or configuration"
+regex = '''(?i)(?:password|passwd|pwd)[A-Za-z0-9_.-]*[[:space:]]*[:=][[:space:]]*["']?[A-Za-z0-9_!@#$%^&*./+=-]{8,}["']?'''
+keywords = ["password", "passwd", "pwd"]

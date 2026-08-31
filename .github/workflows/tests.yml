@@ -1,0 +1,229 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  unit_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          lfs: true
+
+      - name: Install apt tools
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y jq ripgrep shellcheck
+
+      - name: Run fixture-only tests
+        run: |
+          set -euo pipefail
+
+          # ast-grep/treefmt-real-tools/typos-config/yamllint-config and the
+          # gitleaks/oxlint/zizmor/osv real-tool fixtures need binaries and run
+          # in the real_tool_tests job instead. Any other tests/*.sh added later
+          # is picked up here by default; if it actually needs a real tool it
+          # will fail loudly with a "command not found" error rather than being
+          # silently skipped.
+          status=0
+          for test_script in tests/*.sh; do
+            case "$test_script" in
+            tests/ast-grep-no-derived-count-property-test.sh | \
+              tests/gitleaks-config-test.sh | \
+              tests/osv-scanner-swift-lockfile-test.sh | \
+              tests/oxlint-config-test.sh | \
+              tests/treefmt-real-tools-test.sh | \
+              tests/typos-config-test.sh | \
+              tests/yamllint-config-test.sh | \
+              tests/zizmor-config-test.sh)
+              continue
+              ;;
+            esac
+            echo "::group::$test_script"
+            if ! bash "$test_script"; then
+              echo "::error::$test_script failed"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
+
+  real_tool_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          lfs: true
+
+      - name: Install apt tools
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y jq ripgrep
+
+      - name: Prepare vendored tools
+        run: |
+          set -euo pipefail
+
+          chmod +x bin/linux-x86_64/*
+          printf '%s\n' "$GITHUB_WORKSPACE/bin/linux-x86_64" >>"$GITHUB_PATH"
+          printf '%s\n' "$GITHUB_WORKSPACE/.github/quality-gates/node_modules/.bin" >>"$GITHUB_PATH"
+          [[ "$(bin/linux-x86_64/treefmt --version)" == "treefmt v2.5.0" ]]
+          [[ "$(bin/linux-x86_64/shfmt --version)" == "v3.13.1" ]]
+          [[ "$(bin/linux-x86_64/taplo --version)" == "taplo 0.10.0" ]]
+          [[ "$(bin/linux-x86_64/ruff --version)" == "ruff 0.15.22" ]]
+
+      - name: Install Typos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          typos_tmp="$(mktemp -d)"
+          gh release download v1.48.0 --repo crate-ci/typos --pattern typos-v1.48.0-x86_64-unknown-linux-musl.tar.gz --output "$typos_tmp/typos.tar.gz"
+          printf '%s  %s\n' '72a930c9a94fc3914aa56835c5b859c892a797d40c1c42638b98d93f16ff519c' "$typos_tmp/typos.tar.gz" | sha256sum --check --strict
+          tar xzf "$typos_tmp/typos.tar.gz" -C "$typos_tmp"
+          sudo install "$typos_tmp/typos" /usr/local/bin/typos
+
+      - name: Install gitleaks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gitleaks_tmp="$(mktemp -d)"
+          gh release download v8.30.1 --repo gitleaks/gitleaks --pattern gitleaks_8.30.1_linux_x64.tar.gz --output "$gitleaks_tmp/gitleaks.tar.gz"
+          printf '%s  %s\n' '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb' "$gitleaks_tmp/gitleaks.tar.gz" | sha256sum --check --strict
+          tar xzf "$gitleaks_tmp/gitleaks.tar.gz" -C "$gitleaks_tmp"
+          sudo install "$gitleaks_tmp/gitleaks" /usr/local/bin/gitleaks
+          [[ "$(gitleaks version)" == "8.30.1" ]]
+
+      - name: Install OSV-Scanner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          osv_tmp="$(mktemp -d)"
+          gh release download v2.5.1 --repo google/osv-scanner --pattern osv-scanner_linux_amd64 --output "$osv_tmp/osv-scanner"
+          printf '%s  %s\n' 'f9f25499a2c8cc367b3af45df2ea7eeca7fbccceab9c35079968f4b3652194be' "$osv_tmp/osv-scanner" | sha256sum --check --strict
+          sudo install "$osv_tmp/osv-scanner" /usr/local/bin/osv-scanner
+          osv_version="$(osv-scanner --version)"
+          osv_version="${osv_version%%$'\n'*}"
+          [[ "$osv_version" == "osv-scanner version: 2.5.1" ]]
+
+      - name: Install Oxlint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          oxlint_tmp="$(mktemp -d)"
+          gh release download apps_v1.65.0 --repo oxc-project/oxc --pattern oxlint-x86_64-unknown-linux-gnu.tar.gz --output "$oxlint_tmp/oxlint.tar.gz"
+          printf '%s  %s\n' '3ee40ecd4355369c8f5b58ad3a9b6de6d0f048c2f23b17b806c6ae7bffda3896' "$oxlint_tmp/oxlint.tar.gz" | sha256sum --check --strict
+          tar xzf "$oxlint_tmp/oxlint.tar.gz" -C "$oxlint_tmp"
+          sudo install "$oxlint_tmp/oxlint-x86_64-unknown-linux-gnu" /usr/local/bin/oxlint
+          [[ "$(oxlint --version)" == "Version: 1.65.0" ]]
+
+      - name: Install zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          zizmor_tmp="$(mktemp -d)"
+          gh release download v1.29.0 --repo zizmorcore/zizmor --pattern zizmor-x86_64-unknown-linux-gnu.tar.gz --output "$zizmor_tmp/zizmor.tar.gz"
+          printf '%s  %s\n' 'dd96df044a6e8538d5f423790f453bdd03d49e5b2bcc38214acc41a2f1297839' "$zizmor_tmp/zizmor.tar.gz" | sha256sum --check --strict
+          tar xzf "$zizmor_tmp/zizmor.tar.gz" -C "$zizmor_tmp"
+          sudo install "$zizmor_tmp/zizmor" /usr/local/bin/zizmor
+          [[ "$(zizmor --version)" == "zizmor 1.29.0" ]]
+
+      - name: Install yamllint
+        run: |
+          set -euo pipefail
+
+          pipx install "yamllint==1.38.0"
+          yamllint_version="$(yamllint --version)"
+          [[ "$yamllint_version" == "yamllint 1.38.0" ]]
+
+      - name: Install ast-grep
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          ast_grep_tmp="$(mktemp -d)"
+          gh release download 0.44.1 --repo ast-grep/ast-grep --pattern app-x86_64-unknown-linux-gnu.zip --output "$ast_grep_tmp/ast-grep.zip"
+          printf '%s  %s\n' '611f9e5e76f2611ecea1a35dd3468ceedf600641a11224b80341d79c6ee7b9dd' "$ast_grep_tmp/ast-grep.zip" | sha256sum --check --strict
+          unzip -q "$ast_grep_tmp/ast-grep.zip" -d "$ast_grep_tmp/ast-grep"
+          sudo install "$ast_grep_tmp/ast-grep/ast-grep" /usr/local/bin/ast-grep
+          sudo install "$ast_grep_tmp/ast-grep/sg" /usr/local/bin/sg
+          ast_grep_version="$(ast-grep --version)"
+          if [[ "$ast_grep_version" != "ast-grep 0.44.1" ]]; then
+            echo "::error::ast-grep version mismatch: expected 0.44.1, got $ast_grep_version"
+            exit 1
+          fi
+
+      - name: Run real-tool integration tests
+        run: |
+          set -euo pipefail
+
+          status=0
+          for test_script in \
+            tests/ast-grep-no-derived-count-property-test.sh \
+            tests/gitleaks-config-test.sh \
+            tests/osv-scanner-swift-lockfile-test.sh \
+            tests/oxlint-config-test.sh \
+            tests/treefmt-real-tools-test.sh \
+            tests/typos-config-test.sh \
+            tests/yamllint-config-test.sh \
+            tests/zizmor-config-test.sh; do
+            echo "::group::$test_script"
+            if ! bash "$test_script"; then
+              echo "::error::$test_script failed"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
+
+  tests:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - unit_tests
+      - real_tool_tests
+    permissions:
+      contents: read
+    steps:
+      - name: Confirm test jobs
+        run: |
+          set -euo pipefail
+
+          for result in "${{ needs.unit_tests.result }}" "${{ needs.real_tool_tests.result }}"; do
+            if [[ "$result" != "success" ]]; then
+              echo "::error::test job did not succeed: $result"
+              exit 1
+            fi
+          done
+          echo "All tests/*.sh passed"
