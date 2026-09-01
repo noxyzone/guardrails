@@ -143,6 +143,11 @@ if [[ "$actionlint_target_actual" != "$actionlint_target_expected" ]]; then
 fi
 
 treefmt_excludes="$("$FILTER" --repo /tmp --treefmt-excludes)"
+legacy_bash_treefmt_excludes="$(PATH=/usr/bin:/bin "$FILTER" --repo /tmp --treefmt-excludes)"
+if [[ "$legacy_bash_treefmt_excludes" != "$treefmt_excludes" ]]; then
+    printf 'FAIL: Treefmt excludes must support the system Bash with no distribution manifest\n' >&2
+    exit 1
+fi
 # shellcheck disable=SC2041 # 単一要素のglob文字列リテラルであり、コマンド実行ではない
 for required_exclude in \
     '.agents/skills/.system/**' \

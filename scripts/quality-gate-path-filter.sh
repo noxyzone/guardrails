@@ -105,7 +105,7 @@ is_managed_artifact_path() {
         return 0
         ;;
     esac
-    for distribution_path in "${distribution_paths[@]}"; do
+    for distribution_path in "${distribution_paths[@]+"${distribution_paths[@]}"}"; do
         [[ "$1" == "$distribution_path" ]] && return 0
     done
     return 1
@@ -124,10 +124,14 @@ treefmt-excludes)
     printf '%s\n' '.agents/skills/openai-curated-*/**'
     printf '%s\n' 'bin/**'
     printf '%s\n' '.github/quality-gates/node_modules/**'
-    printf '%s\n' "${distribution_paths[@]}"
+    if ((${#distribution_paths[@]} > 0)); then
+        printf '%s\n' "${distribution_paths[@]}"
+    fi
     ;;
 manifest-paths)
-    printf '%s\n' "${distribution_paths[@]}"
+    if ((${#distribution_paths[@]} > 0)); then
+        printf '%s\n' "${distribution_paths[@]}"
+    fi
     ;;
 lines)
     while IFS= read -r path || [[ -n "$path" ]]; do
