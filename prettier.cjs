@@ -28,6 +28,12 @@ module.exports = {
   ],
   overrides: [
     {
+      files: "*.json",
+      options: {
+        printWidth: 1,
+      },
+    },
+    {
       files: "*.html",
       options: {
         parser: "go-template",

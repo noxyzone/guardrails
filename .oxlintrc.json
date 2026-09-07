@@ -1,5 +1,8 @@
 {
-  "plugins": ["oxc", "typescript"],
+  "plugins": [
+    "oxc",
+    "typescript"
+  ],
   "categories": {
     "correctness": "error"
   },

@@ -46,6 +46,17 @@ for shfmt_repo in \
     fi
 done
 
+# JSONは短い非空配列も要素ごとの複数行形式へ統一する。
+JSON_REPO="$FIXTURE/json-repo"
+mkdir -p "$JSON_REPO"
+printf '%s\n' '{"items":["one","two"],"empty":[]}' >"$JSON_REPO/fixture.json"
+"$SCRIPT" --write --repo "$JSON_REPO" -- fixture.json >/dev/null
+expected_json=$'{\n  "items": [\n    "one",\n    "two"\n  ],\n  "empty": []\n}'
+if [[ "$(<"$JSON_REPO/fixture.json")" != "$expected_json" ]]; then
+    echo "FAIL: JSONの非空配列が要素ごとの複数行形式ではない" >&2
+    exit 1
+fi
+
 # treefmt --ci only fails after formatters report a change; it does not prevent
 # formatter-specific write flags. A real formatter run must therefore leave an
 # unformatted tracked file untouched in check mode.
