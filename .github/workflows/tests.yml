@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # ast-grep/treefmt-real-tools/typos-config/yamllint-config and the
+          # ast-grep/gofmt/treefmt-real-tools/typos-config/yamllint-config and the
           # gitleaks/oxlint/zizmor/osv real-tool fixtures need binaries and run
           # in the real_tool_tests job instead. Any other tests/*.sh added later
           # is picked up here by default; if it actually needs a real tool it
@@ -41,6 +41,7 @@ jobs:
           for test_script in tests/*.sh; do
             case "$test_script" in
             tests/ast-grep-no-derived-count-property-test.sh | \
+              tests/gofmt-check-test.sh | \
               tests/gitleaks-config-test.sh | \
               tests/osv-scanner-swift-lockfile-test.sh | \
               tests/oxlint-config-test.sh | \
@@ -79,6 +80,12 @@ jobs:
 
           sudo apt-get update
           sudo apt-get install -y jq ripgrep
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: "1.25.0"
+          cache: false
 
       - name: Prepare vendored tools
         run: |
@@ -190,6 +197,7 @@ jobs:
           status=0
           for test_script in \
             tests/ast-grep-no-derived-count-property-test.sh \
+            tests/gofmt-check-test.sh \
             tests/gitleaks-config-test.sh \
             tests/osv-scanner-swift-lockfile-test.sh \
             tests/oxlint-config-test.sh \

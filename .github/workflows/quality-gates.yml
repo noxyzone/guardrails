@@ -19,6 +19,7 @@ jobs:
       actionlint: ${{ steps.changed.outputs.actionlint }}
       ast_grep: ${{ steps.changed.outputs.ast_grep }}
       gitleaks: ${{ steps.changed.outputs.gitleaks }}
+      gofmt: ${{ steps.changed.outputs.gofmt }}
       localization: ${{ steps.changed.outputs.localization }}
       markdownlint: ${{ steps.changed.outputs.markdownlint }}
       osv: ${{ steps.changed.outputs.osv }}
@@ -115,7 +116,7 @@ jobs:
           done <"$scope_args_file"
           target_dir="$RUNNER_TEMP/quality-gate-targets"
           mkdir -p "$target_dir"
-          for kind in actionlint zizmor gitleaks treefmt_non_swift text_spacing typos yamllint localization markdownlint oxlint osv ruff shell; do
+          for kind in actionlint zizmor gitleaks gofmt treefmt_non_swift text_spacing typos yamllint localization markdownlint oxlint osv ruff shell; do
             .guardrails/scripts/quality-gate-targets.sh \
               --repo "$GITHUB_WORKSPACE" \
               "${scope_args[@]}" \
@@ -128,6 +129,21 @@ jobs:
 
           sudo apt-get update
           sudo apt-get install -y jq shellcheck
+
+      - name: Set up Go
+        if: ${{ needs.detect_changes.outputs.gofmt == 'true' }}
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: "1.25.0"
+          cache: false
+
+      - name: Verify Go formatter version
+        if: ${{ needs.detect_changes.outputs.gofmt == 'true' }}
+        run: |
+          set -euo pipefail
+
+          [[ "$(go env GOVERSION)" == "go1.25.0" ]]
+          command -v gofmt >/dev/null
 
       - name: Prepare vendored tools
         run: |
@@ -265,6 +281,13 @@ jobs:
           gitleaks_files="$RUNNER_TEMP/quality-gate-targets/gitleaks.txt"
           tr '\0' '\n' <"$RUNNER_TEMP/quality-gate-targets/gitleaks.bin" >"$gitleaks_files"
           .guardrails/scripts/gitleaks-check.sh --files-from "$gitleaks_files" --repo "$GITHUB_WORKSPACE"
+
+      - name: Run gofmt
+        if: ${{ needs.detect_changes.outputs.gofmt == 'true' }}
+        run: |
+          set -euo pipefail
+
+          .guardrails/scripts/gofmt-check.sh --files-from "$RUNNER_TEMP/quality-gate-targets/gofmt.bin" --repo "$GITHUB_WORKSPACE"
 
       - name: Run Treefmt
         if: ${{ needs.detect_changes.outputs.treefmt_non_swift == 'true' }}

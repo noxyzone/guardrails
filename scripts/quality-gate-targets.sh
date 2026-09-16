@@ -13,7 +13,7 @@ usage() {
 usage: quality-gate-targets.sh --repo PATH (--staged | --changed --base SHA --head SHA [--range-mode merge-base|direct] | --all) --kind KIND
 
 Writes matching paths as a NUL-delimited stream. KIND is one of:
-  any actionlint ast_grep gitleaks localization markdownlint osv oxlint ruff shell
+  any actionlint ast_grep gitleaks gofmt localization markdownlint osv oxlint ruff shell
   swift text_spacing treefmt_non_swift typos yamllint zizmor
 USAGE
     exit 2
@@ -69,7 +69,7 @@ done
 
 [[ -n "$repo" && -n "$mode" && -n "$kind" ]] || usage
 case "$kind" in
-any | actionlint | ast_grep | gitleaks | localization | markdownlint | osv | oxlint | ruff | shell | swift | text_spacing | treefmt_non_swift | typos | yamllint | zizmor) ;;
+any | actionlint | ast_grep | gitleaks | gofmt | localization | markdownlint | osv | oxlint | ruff | shell | swift | text_spacing | treefmt_non_swift | typos | yamllint | zizmor) ;;
 *) usage ;;
 esac
 if [[ "$mode" == "changed" && (-z "$base" || -z "$head") ]]; then
@@ -147,6 +147,7 @@ is_scope_expansion_path() {
     actionlint:.github/actionlint.yaml | \
         ast_grep:sgconfig.yml | ast_grep:.sgconfig.yml | \
         gitleaks:.gitleaks.toml | gitleaks:.gitleaksignore | \
+        gofmt:go.mod | \
         markdownlint:.markdownlintignore | markdownlint:.markdownlint-cli2.* | markdownlint:.markdownlint.json* | \
         osv:osv-scanner.toml | osv:osv-scanner.yaml | osv:osv-scanner.yml | osv:.osv-scanner.toml | \
         oxlint:.oxlintrc.json | oxlint:.oxlintrc.jsonc | oxlint:oxlint.config.json | oxlint:oxlint.config.jsonc | \
@@ -176,6 +177,7 @@ matches_kind() {
         [[ "$path" =~ \.(cjs|js|mjs|ts|tsx)$ ]]
         ;;
     localization) [[ "$path" == *.swift || "$path" == *.xcstrings ]] ;;
+    gofmt) [[ "$path" == *.go ]] ;;
     markdownlint) [[ "$path" == *.md ]] ;;
     osv)
         case "${path##*/}" in

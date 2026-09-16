@@ -6,22 +6,23 @@
 
 ## 共有ゲート
 
-| ゲート       | workflow                               | 主な対象                                                   | 検出・確認内容                                                                                                                   |
-| ------------ | -------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| GitIdentity  | `.github/workflows/git-identity.yml`   | commit author/committer                                    | GitHub noreply email以外の公開混入                                                                                               |
-| QualityGates | `.github/workflows/quality-gates.yml`  | PRで変更されたファイル種別に応じた各guardrails検査         | 変更ファイル判定、Actionlint・zizmor・gitleaks・OSV-Scanner・Oxlintを含む必要jobの実行、不要job skip、各guardrails検査結果の集約 |
-| Treefmt      | `.github/workflows/treefmt.yml`        | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | Ubuntuでの非Swift整形差分、macOSでのSwiftFormat差分、repoローカル`.swiftformat`の混入                                            |
-| TextSpacing  | `.github/workflows/text-spacing.yml`   | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース                                                                                           |
-| Typos        | `.github/workflows/typos.yml`          | Git管理下の実ファイル                                      | ソースコード・ドキュメント・ファイル名の既知typo                                                                                 |
-| Localization | `.github/workflows/localization.yml`   | `*.xcstrings`、SwiftのAppKit/独自UI入口                    | 日本語ローカライズ欠落、SwiftUI自動抽出に乗らないUI文字列の直書き                                                                |
-| SwiftLint    | `.github/workflows/swiftlint.yml`      | `*.swift`                                                  | SwiftLint標準ルールと`print()`・`try?`禁止などの独自ルール                                                                       |
-| MarkdownLint | `.github/workflows/markdownlint.yml`   | `*.md`                                                     | 見出し、リスト、空行などのMarkdown記法                                                                                           |
-| Ruff         | `.github/workflows/ruff.yml`           | `*.py`                                                     | Ruff指摘                                                                                                                         |
-| ast-grep     | `.github/workflows/ast-grep.yml`       | `*.swift`                                                  | Swift構造ルール（通知送信、管理外型extension、UIテスト環境判定、非仮想化一覧）                                                   |
-| YAMLLint     | `.github/workflows/yamllint.yml`       | `*.yaml`、`*.yml`（`.github/workflows/`を除く）            | 重複キー、インデント崩れなどYAML構文・構造の問題                                                                                 |
-| Shebang      | `.github/workflows/shebang.yml`        | shell script                                               | `#!/bin/bash`等を検出し、`#!/usr/bin/env bash`を要求                                                                             |
-| ShellCheck   | `.github/workflows/shellcheck.yml`     | zsh系を除くshell script                                    | ShellCheck指摘                                                                                                                   |
-| LLMCLIStream | `.github/workflows/llm-cli-stream.yml` | zsh系を除くshell script                                    | LLM CLI等サブプロセス出力を`tee`でstdoutへ複製しオーケストレータのstdoutを浪費する垂れ流し                                       |
+| ゲート       | workflow                               | 主な対象                                                   | 検出・確認内容                                                                                                                             |
+| ------------ | -------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| GitIdentity  | `.github/workflows/git-identity.yml`   | commit author/committer                                    | GitHub noreply email以外の公開混入                                                                                                         |
+| QualityGates | `.github/workflows/quality-gates.yml`  | PRで変更されたファイル種別に応じた各guardrails検査         | 変更ファイル判定、Actionlint・zizmor・gitleaks・GoFormat・OSV-Scanner・Oxlintを含む必要jobの実行、不要job skip、各guardrails検査結果の集約 |
+| GoFormat     | `.github/workflows/quality-gates.yml`  | `*.go`                                                     | Go 1.25.0の`gofmt`による整形差分                                                                                                           |
+| Treefmt      | `.github/workflows/treefmt.yml`        | JSON、YAML、TOML、Markdown、Swift、shell scriptなど        | Ubuntuでの非Swift整形差分、macOSでのSwiftFormat差分、repoローカル`.swiftformat`の混入                                                      |
+| TextSpacing  | `.github/workflows/text-spacing.yml`   | `*.md`、`*.txt`、`*.toml`、`*.yaml`、`*.json`、HTML、CSS等 | 日本語と英数字の間に入った半角スペース                                                                                                     |
+| Typos        | `.github/workflows/typos.yml`          | Git管理下の実ファイル                                      | ソースコード・ドキュメント・ファイル名の既知typo                                                                                           |
+| Localization | `.github/workflows/localization.yml`   | `*.xcstrings`、SwiftのAppKit/独自UI入口                    | 日本語ローカライズ欠落、SwiftUI自動抽出に乗らないUI文字列の直書き                                                                          |
+| SwiftLint    | `.github/workflows/swiftlint.yml`      | `*.swift`                                                  | SwiftLint標準ルールと`print()`・`try?`禁止などの独自ルール                                                                                 |
+| MarkdownLint | `.github/workflows/markdownlint.yml`   | `*.md`                                                     | 見出し、リスト、空行などのMarkdown記法                                                                                                     |
+| Ruff         | `.github/workflows/ruff.yml`           | `*.py`                                                     | Ruff指摘                                                                                                                                   |
+| ast-grep     | `.github/workflows/ast-grep.yml`       | `*.swift`                                                  | Swift構造ルール（通知送信、管理外型extension、UIテスト環境判定、非仮想化一覧）                                                             |
+| YAMLLint     | `.github/workflows/yamllint.yml`       | `*.yaml`、`*.yml`（`.github/workflows/`を除く）            | 重複キー、インデント崩れなどYAML構文・構造の問題                                                                                           |
+| Shebang      | `.github/workflows/shebang.yml`        | shell script                                               | `#!/bin/bash`等を検出し、`#!/usr/bin/env bash`を要求                                                                                       |
+| ShellCheck   | `.github/workflows/shellcheck.yml`     | zsh系を除くshell script                                    | ShellCheck指摘                                                                                                                             |
+| LLMCLIStream | `.github/workflows/llm-cli-stream.yml` | zsh系を除くshell script                                    | LLM CLI等サブプロセス出力を`tee`でstdoutへ複製しオーケストレータのstdoutを浪費する垂れ流し                                                 |
 
 ## ローカル確認
 
@@ -66,7 +67,7 @@ scripts/typos-check.sh --changed --base BASE --head HEAD --repo /path/to/repo
 scripts/typos-check.sh --staged --repo /path/to/repo
 ```
 
-pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstaged file一覧を、Actionlint、TextSpacing、Localization、Typosを含む各ゲートへ渡します。Actionlintは`.github/workflows`直下のworkflowだけを対象にし、`-shellcheck= -pyflakes=`で外部linter連携を無効化します。shell scriptは既存のShellCheckゲートが独立して検査します。
+pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstaged file一覧を、Actionlint、TextSpacing、Localization、Typosを含む各ゲートへ渡します。Actionlintは`.github/workflows`直下のworkflowだけを対象にし、`-shellcheck= -pyflakes=`で外部linter連携を無効化します。shell scriptは既存のShellCheckゲートが独立して検査します。GoFormatの共有scriptは`gofmt -l`でcheck-only検査し、worktreeやindexを更新しません。
 
 ## 除外ルール
 
@@ -75,7 +76,9 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
 - gitleaks
   symlinkと存在しないpathを除外し、共有`.gitleaks.toml`に従います。標準ルールに加え、SecretLint recommendで検出していたnpm token、低entropy GitHub PAT、汎用password代入を追加ルールで維持し、ダミー値の陽性・陰性を`tests/gitleaks-config-test.sh`で固定します。
 - QualityGates
-  PRの変更ファイルを判定し、対象ファイル種別がないjobはskipします。Ubuntu側でActionlint、zizmor、gitleaks、Treefmtの非Swift対象、TextSpacing、Typos、YAMLLint、Localization、MarkdownLint、Oxlint、OSV-Scanner、Ruff、Shebang、ShellCheck、LLMCLIStreamを実行し、macOS側でast-grep、SwiftLint、SwiftFormatを実行します。最後に`quality_gates`jobで結果を集約します。Actionlintとzizmorは`.github/workflows`直下の`.yml`と`.yaml`だけを読み、削除済みworkflowとサブディレクトリは対象にしません。OSV-Scannerは`Package.resolved`を含むlockfile変更を検査します。
+  PRの変更ファイルを判定し、対象ファイル種別がないjobはskipします。Ubuntu側でActionlint、zizmor、gitleaks、GoFormat、Treefmtの非Swift対象、TextSpacing、Typos、YAMLLint、Localization、MarkdownLint、Oxlint、OSV-Scanner、Ruff、Shebang、ShellCheck、LLMCLIStreamを実行し、macOS側でast-grep、SwiftLint、SwiftFormatを実行します。最後に`quality_gates`jobで結果を集約します。Actionlintとzizmorは`.github/workflows`直下の`.yml`と`.yaml`だけを読み、削除済みworkflowとサブディレクトリは対象にしません。OSV-Scannerは`Package.resolved`を含むlockfile変更を検査します。
+- GoFormat
+  Go 1.25.0の`gofmt`を使い、変更された`*.go`だけをcheck-onlyで検査します。`go.mod`が変更された場合は、同じリポジトリの全tracked `*.go`へ対象を拡張します。整形や再stageは行いません。
 - Treefmt
   `treefmt.toml`に従います。現在は`.agents/skills/.system/**`、`artifacts/**`を除外します。GitHubActionsでは非Swift整形をUbuntuのTreefmt jobで実行し、SwiftFormatだけをmacOS jobへ分離します。repoローカルの`.swiftformat`は許可せず、共有`guardrails/.swiftformat`を使います。
 - TextSpacing
@@ -112,7 +115,7 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
 `tests/*.sh`はguardrails自身の確定テストで、`.github/workflows/tests.yml`（push/PR起動、reusable workflowではない）がCIで実行します。fake toolによるwrapper挙動検証（timeout、引数生成、config分岐）と、実物の`treefmt`/`shfmt`/`prettier`/`typos`/`yamllint`/`ast-grep`を使った統合確認は別jobに分離しており、fixture-onlyの成功を統合確認の成功として扱いません。
 
 - `unit_tests`: `tests/*.sh`のうちfake toolや`rg`/`jq`だけで完結するものを実行します。
-- `real_tool_tests`: `ast-grep-no-derived-count-property-test.sh`、`gitleaks-config-test.sh`、`osv-scanner-swift-lockfile-test.sh`、`oxlint-config-test.sh`、`treefmt-real-tools-test.sh`、`typos-config-test.sh`、`yamllint-config-test.sh`、`zizmor-config-test.sh`を対象に、vendored binary（`bin/linux-x86_64/`、`.github/quality-gates/node_modules/`）とCI都度DLする`typos`/`yamllint`/`ast-grep`/`gitleaks`/`osv-scanner`/`oxlint`/`zizmor`を用意してから実行します。
+- `real_tool_tests`: `ast-grep-no-derived-count-property-test.sh`、`gofmt-check-test.sh`、`gitleaks-config-test.sh`、`osv-scanner-swift-lockfile-test.sh`、`oxlint-config-test.sh`、`treefmt-real-tools-test.sh`、`typos-config-test.sh`、`yamllint-config-test.sh`、`zizmor-config-test.sh`を対象に、vendored binary（`bin/linux-x86_64/`、`.github/quality-gates/node_modules/`）とCI都度DLする`typos`/`yamllint`/`ast-grep`/`gitleaks`/`osv-scanner`/`oxlint`/`zizmor`を用意してから実行します。
 
 新しい`tests/*.sh`を追加した場合、実物ツールが必要なら`.github/workflows/tests.yml`の`real_tool_tests`側の一覧へ追加してください。追加を忘れても`unit_tests`側でcommand not foundとして失敗するため、無言でスキップされることはありません。
 

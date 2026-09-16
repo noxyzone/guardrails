@@ -80,6 +80,33 @@ oxlint_output="$FIXTURE/oxlint.bin"
 "$TARGETS" --repo "$oxlint_repo" --staged --kind oxlint >"$oxlint_output"
 assert_null_paths "$oxlint_output" "source.js"
 
+go_repo="$FIXTURE/go-repo"
+mkdir -p "$go_repo/cmd/app" "$go_repo/internal/sample"
+git -C "$go_repo" init -q
+git -C "$go_repo" config user.email fixture@example.invalid
+git -C "$go_repo" config user.name Fixture
+printf 'module example.invalid/fixture\n\ngo 1.25\n' >"$go_repo/go.mod"
+printf 'package main\n\nfunc main() {}\n' >"$go_repo/cmd/app/main.go"
+printf 'package sample\n' >"$go_repo/internal/sample/sample.go"
+git -C "$go_repo" add -- .
+go_base_tree="$(git -C "$go_repo" write-tree)"
+go_base_commit="$(printf 'go base\n' | git -C "$go_repo" commit-tree "$go_base_tree")"
+printf 'package main\n\nfunc main() { println("changed") }\n' >"$go_repo/cmd/app/main.go"
+git -C "$go_repo" add -- cmd/app/main.go
+go_head_tree="$(git -C "$go_repo" write-tree)"
+go_head_commit="$(printf 'go head\n' | git -C "$go_repo" commit-tree "$go_head_tree" -p "$go_base_commit")"
+go_changed_output="$FIXTURE/go-changed.bin"
+"$TARGETS" --repo "$go_repo" --changed --base "$go_base_commit" --head "$go_head_commit" --kind gofmt >"$go_changed_output"
+assert_null_paths "$go_changed_output" "cmd/app/main.go"
+
+printf 'module example.invalid/fixture\n\ngo 1.25.1\n' >"$go_repo/go.mod"
+git -C "$go_repo" add -- go.mod
+go_config_tree="$(git -C "$go_repo" write-tree)"
+go_config_commit="$(printf 'go config\n' | git -C "$go_repo" commit-tree "$go_config_tree" -p "$go_head_commit")"
+go_config_output="$FIXTURE/go-config.bin"
+"$TARGETS" --repo "$go_repo" --changed --base "$go_head_commit" --head "$go_config_commit" --kind gofmt >"$go_config_output"
+assert_null_paths "$go_config_output" "cmd/app/main.go" "internal/sample/sample.go"
+
 printf '#!/usr/bin/env bash\nexit 0\n' >"$repo/tool"
 line_number=0
 while [[ "$line_number" -lt 20000 ]]; do

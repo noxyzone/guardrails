@@ -115,6 +115,7 @@ any="$(has_targets any)"
 actionlint="$(has_targets actionlint)"
 ast_grep="$(has_targets ast_grep)"
 gitleaks="$(has_targets gitleaks)"
+gofmt="$(has_targets gofmt)"
 localization="$(has_targets localization)"
 markdownlint="$(has_targets markdownlint)"
 osv="$(has_targets osv)"
@@ -128,7 +129,7 @@ typos="$(has_targets typos)"
 yamllint="$(has_targets yamllint)"
 zizmor="$(has_targets zizmor)"
 ubuntu=false
-for needed in "$actionlint" "$gitleaks" "$localization" "$markdownlint" "$osv" "$oxlint" "$ruff" "$shell" "$text_spacing" "$treefmt_non_swift" "$typos" "$yamllint" "$zizmor"; do
+for needed in "$actionlint" "$gitleaks" "$gofmt" "$localization" "$markdownlint" "$osv" "$oxlint" "$ruff" "$shell" "$text_spacing" "$treefmt_non_swift" "$typos" "$yamllint" "$zizmor"; do
     if [[ "$needed" == true ]]; then
         ubuntu=true
     fi
@@ -139,6 +140,7 @@ done
     printf 'actionlint=%s\n' "$actionlint"
     printf 'ast_grep=%s\n' "$ast_grep"
     printf 'gitleaks=%s\n' "$gitleaks"
+    printf 'gofmt=%s\n' "$gofmt"
     printf 'localization=%s\n' "$localization"
     printf 'markdownlint=%s\n' "$markdownlint"
     printf 'osv=%s\n' "$osv"

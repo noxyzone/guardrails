@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT_DIR/.github/workflows/quality-gates.yml"
+TESTS_WORKFLOW="$ROOT_DIR/.github/workflows/tests.yml"
 TREEFMT_WORKFLOW="$ROOT_DIR/.github/workflows/treefmt.yml"
 SWIFTLINT_WORKFLOW="$ROOT_DIR/.github/workflows/swiftlint.yml"
 PRETTIER_CONFIG="$ROOT_DIR/prettier.cjs"
@@ -25,7 +26,11 @@ for required in \
     '--head "\$head_sha"' \
     '--output "\$GITHUB_OUTPUT"' \
     'ast_grep: \$\{\{ steps\.changed\.outputs\.ast_grep \}\}' \
+    'gofmt: \$\{\{ steps\.changed\.outputs\.gofmt \}\}' \
     'uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803' \
+    'uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00' \
+    'go-version: "1\.25\.0"' \
+    'cache: false' \
     'chmod \+x \.guardrails/bin/linux-x86_64/\*' \
     'printf '\''%s\\n'\'' "\$GITHUB_WORKSPACE/\.guardrails/bin/linux-x86_64" >> "\$GITHUB_PATH"' \
     'printf '\''%s\\n'\'' "\$GITHUB_WORKSPACE/\.guardrails/\.github/quality-gates/node_modules/\.bin" >> "\$GITHUB_PATH"' \
@@ -64,6 +69,18 @@ for forbidden in 'guardrails-ref:' 'inputs\.guardrails-ref'; do
         echo "FAIL: QualityGates must not allow callers to override guardrails/main: $forbidden" >&2
         exit 1
     fi
+done
+
+for go_workflow in "$WORKFLOW" "$TESTS_WORKFLOW"; do
+    for required in \
+        'uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00' \
+        'go-version: "1.25.0"' \
+        'cache: false'; do
+        if ! grep -Fq "$required" "$go_workflow"; then
+            echo "FAIL: Go formatter workflows must pin Go 1.25.0: $go_workflow: $required" >&2
+            exit 1
+        fi
+    done
 done
 
 while IFS= read -r guardrails_workflow; do
@@ -188,6 +205,7 @@ done
 # shellcheck disable=SC2016
 for required in \
     '.guardrails/scripts/gitleaks-check.sh --files-from "$gitleaks_files" --repo "$GITHUB_WORKSPACE"' \
+    '.guardrails/scripts/gofmt-check.sh --files-from "$RUNNER_TEMP/quality-gate-targets/gofmt.bin" --repo "$GITHUB_WORKSPACE"' \
     'xargs -0 -r actionlint -shellcheck= -pyflakes=' \
     '.guardrails/scripts/guardrails-main-ref-check.sh --repo "$GITHUB_WORKSPACE" --files-from "$RUNNER_TEMP/quality-gate-targets/zizmor.bin"' \
     'xargs -0 .guardrails/scripts/treefmt-check.sh --check --without-swiftformat --repo "$GITHUB_WORKSPACE" --' \
@@ -211,6 +229,7 @@ done
 # shellcheck disable=SC2016
 for forbidden in \
     'uses: actions/checkout@v[0-9]' \
+    'uses: actions/setup-go@v[0-9]' \
     '\[\[ "\$\(actionlint -version\)" == "1\.7\.12" \]\]' \
     'npm install' \
     'npm ci --prefix' \

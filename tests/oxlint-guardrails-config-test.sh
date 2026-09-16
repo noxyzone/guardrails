@@ -64,8 +64,9 @@ if ! rg -q 'oxlint="\$\(has_targets oxlint\)"' "$CHANGE_DETECTION"; then
     exit 1
 fi
 
-if ! rg -Fq 'oxlint) [[ "$path" =~ \.(cjs|js|mjs|ts|tsx)$ ]]' "$TARGETS"; then
-    echo "FAIL: shared targets must scope Oxlint to JS/TS files" >&2
+if ! rg -Fq '[[ "${path##*/}" == eslint.config.* ]] && return 1' "$TARGETS" ||
+    ! rg -Fq '[[ "$path" =~ \.(cjs|js|mjs|ts|tsx)$ ]]' "$TARGETS"; then
+    echo "FAIL: shared targets must exclude ESLint config and scope Oxlint to JS/TS files" >&2
     exit 1
 fi
 

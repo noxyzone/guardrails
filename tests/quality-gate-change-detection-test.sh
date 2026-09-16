@@ -20,15 +20,17 @@ markdown_path='docs/-note.md'
 renamed_path='renamed module.ts'
 workflow_path='.github/workflows/quality gates.yaml'
 yaml_path='config/settings.yaml'
-mkdir -p "$FIXTURE/Sources" "$FIXTURE/scripts" "$FIXTURE/docs" "$FIXTURE/.github/workflows" "$FIXTURE/config"
+go_path='cmd/app/main.go'
+mkdir -p "$FIXTURE/Sources" "$FIXTURE/scripts" "$FIXTURE/docs" "$FIXTURE/.github/workflows" "$FIXTURE/config" "$FIXTURE/cmd/app"
 printf 'struct Fixture {}\n' >"$FIXTURE/$swift_path"
 printf '#!/usr/bin/env bash\n' >"$FIXTURE/$shell_path"
 printf '# Fixture\n' >"$FIXTURE/$markdown_path"
 printf 'name: Quality Gates\non: push\njobs: {}\n' >"$FIXTURE/$workflow_path"
 printf 'setting: value\n' >"$FIXTURE/$yaml_path"
+printf 'package main\n\nfunc main() {}\n' >"$FIXTURE/$go_path"
 printf '{ "pins": [], "version": 2 }\n' >"$FIXTURE/Package.resolved"
 git -C "$FIXTURE" mv -- original.ts "$renamed_path"
-git -C "$FIXTURE" add -- "$swift_path" "$shell_path" "$markdown_path" "$renamed_path" "$workflow_path" "$yaml_path" Package.resolved
+git -C "$FIXTURE" add -- "$swift_path" "$shell_path" "$markdown_path" "$renamed_path" "$workflow_path" "$yaml_path" "$go_path" Package.resolved
 head_tree="$(git -C "$FIXTURE" write-tree)"
 head_sha="$(printf 'special names\n' | git -C "$FIXTURE" commit-tree "$head_tree" -p "$base_sha")"
 
@@ -46,6 +48,7 @@ for expected in \
     'actionlint=true' \
     'ast_grep=true' \
     'gitleaks=true' \
+    'gofmt=true' \
     'localization=true' \
     'markdownlint=true' \
     'osv=true' \
@@ -72,6 +75,7 @@ if ! grep -Fxq 'actionlint=true' "$fallback_output" ||
     ! grep -Fxq 'swift=true' "$fallback_output" ||
     ! grep -Fxq 'oxlint=true' "$fallback_output" ||
     ! grep -Fxq 'gitleaks=true' "$fallback_output" ||
+    ! grep -Fxq 'gofmt=true' "$fallback_output" ||
     ! grep -Fxq 'osv=true' "$fallback_output" ||
     ! grep -Fxq 'zizmor=true' "$fallback_output"; then
     printf 'FAIL: tracked-file fallback did not classify special names\n' >&2
