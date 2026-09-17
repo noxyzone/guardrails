@@ -199,11 +199,17 @@ fi
 if [[ "$treefmt_mode" == "write" ]]; then
     run_with_timeout "$treefmt_timeout_seconds" "${treefmt_command[@]}"
 else
-    if ! run_with_timeout "$treefmt_timeout_seconds" "${treefmt_command[@]}"; then
-        if command -v git >/dev/null && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-            printf '%s\n' '[treefmt] formatter check failed; repository diff summary:' >&2
-            git diff --shortstat >&2 || true
-        fi
-        exit 1
+    if run_with_timeout "$treefmt_timeout_seconds" "${treefmt_command[@]}"; then
+        exit 0
+    else
+        treefmt_status="$?"
     fi
+    printf '%s\n' '[treefmt] formatter check failed' >&2
+    if [[ "${#treefmt_args[@]}" -gt 0 ]] &&
+        command -v git >/dev/null &&
+        git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        printf '%s\n' '[treefmt] target diff summary:' >&2
+        git diff --shortstat -- "${treefmt_args[@]}" >&2 || true
+    fi
+    exit "$treefmt_status"
 fi

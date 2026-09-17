@@ -29,8 +29,10 @@ if ! rg -q 'treefmt_command\+=\(--ci\)' "$SCRIPT" ||
     exit 1
 fi
 
-if ! rg -q "git diff --shortstat >&2" "$SCRIPT" || rg -q "git diff -- >&2" "$SCRIPT"; then
-    echo "FAIL: treefmt-check.sh must summarize formatter failures without printing diff contents" >&2
+if ! rg -Fq 'git diff --shortstat -- "${treefmt_args[@]}"' "$SCRIPT" ||
+    rg -Fq 'git diff --shortstat >&2' "$SCRIPT" ||
+    rg -Fq 'git diff -- >&2' "$SCRIPT"; then
+    echo "FAIL: treefmt-check.sh must limit formatter failure summaries to explicit paths without printing diff contents" >&2
     exit 1
 fi
 
@@ -83,6 +85,9 @@ cat >"$FIXTURE/bin/treefmt" <<'FAKE_TREEFMT'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'invoked\n' >"${TREEFMT_INVOKED_FILE:?}"
+if [[ -n "${TREEFMT_FAILURE_MESSAGE:-}" ]]; then
+    printf '%s\n' "$TREEFMT_FAILURE_MESSAGE" >&2
+fi
 if [[ -n "${TREEFMT_ARGS_CAPTURE:-}" ]]; then
 	printf '%s\n' "$@" >"$TREEFMT_ARGS_CAPTURE"
 fi
@@ -171,12 +176,16 @@ fixture_tree="$(git -C "$FIXTURE/repo" write-tree)"
 fixture_commit="$(printf 'initial\n' | git -C "$FIXTURE/repo" commit-tree "$fixture_tree")"
 git -C "$FIXTURE/repo" update-ref HEAD "$fixture_commit"
 printf 'sensitive-fixture-value\n' >"$FIXTURE/repo/sensitive.txt"
-if PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+set +e
+PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
     TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" TREEFMT_EXIT_STATUS=23 \
     /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
-    --repo "$FIXTURE/repo" >"$FIXTURE/treefmt-failure.stdout" \
-    2>"$FIXTURE/treefmt-failure.stderr"; then
-    echo "FAIL: treefmt-check.sh accepted a formatter failure" >&2
+    --repo "$FIXTURE/repo" -- sensitive.txt >"$FIXTURE/treefmt-failure.stdout" \
+    2>"$FIXTURE/treefmt-failure.stderr"
+treefmt_failure_status="$?"
+set -e
+if [[ "$treefmt_failure_status" -ne 23 ]]; then
+    echo "FAIL: treefmt-check.sh did not preserve formatter exit status 23 (got $treefmt_failure_status)" >&2
     exit 1
 fi
 if rg -Fq 'sensitive-fixture-value' "$FIXTURE/treefmt-failure.stderr"; then
@@ -184,10 +193,71 @@ if rg -Fq 'sensitive-fixture-value' "$FIXTURE/treefmt-failure.stderr"; then
     exit 1
 fi
 if ! rg -Fq '1 file changed' "$FIXTURE/treefmt-failure.stderr"; then
-    echo "FAIL: treefmt-check.sh omitted the safe repository diff summary" >&2
+    echo "FAIL: treefmt-check.sh omitted the safe target diff summary" >&2
     exit 1
 fi
 git -C "$FIXTURE/repo" checkout -q -- sensitive.txt
+
+printf 'normal-worktree-sensitive-value\n' >"$FIXTURE/repo/sensitive.txt"
+set +e
+PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" TREEFMT_EXIT_STATUS=23 \
+    TREEFMT_FAILURE_MESSAGE='formatter failed: sensitive.txt' \
+    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    --repo "$FIXTURE/repo" >"$FIXTURE/worktree-failure.stdout" \
+    2>"$FIXTURE/worktree-failure.stderr"
+worktree_failure_status="$?"
+set -e
+if [[ "$worktree_failure_status" -ne 23 ]]; then
+    echo "FAIL: normal worktree did not preserve formatter exit status 23 (got $worktree_failure_status)" >&2
+    exit 1
+fi
+if ! rg -Fq 'formatter failed: sensitive.txt' "$FIXTURE/worktree-failure.stderr" ||
+    rg -Fq 'file changed' "$FIXTURE/worktree-failure.stderr" ||
+    rg -Fq 'normal-worktree-sensitive-value' "$FIXTURE/worktree-failure.stderr"; then
+    echo "FAIL: normal worktree omitted the formatter failure or exposed a repository-wide diff" >&2
+    exit 1
+fi
+git -C "$FIXTURE/repo" checkout -q -- sensitive.txt
+
+mkdir -p "$FIXTURE/index-repo" "$FIXTURE/sparse-snapshot"
+git -C "$FIXTURE/index-repo" init -q
+git -C "$FIXTURE/index-repo" config user.email fixture@example.invalid
+git -C "$FIXTURE/index-repo" config user.name Fixture
+printf 'original target\n' >"$FIXTURE/index-repo/target.txt"
+for unrelated_index in 1 2 3; do
+    printf 'unrelated %s\n' "$unrelated_index" >"$FIXTURE/index-repo/unrelated-$unrelated_index.txt"
+done
+git -C "$FIXTURE/index-repo" add target.txt unrelated-1.txt unrelated-2.txt unrelated-3.txt
+sparse_tree="$(git -C "$FIXTURE/index-repo" write-tree)"
+sparse_commit="$(printf 'initial\n' | git -C "$FIXTURE/index-repo" commit-tree "$sparse_tree")"
+git -C "$FIXTURE/index-repo" update-ref HEAD "$sparse_commit"
+printf 'gitdir: %s/.git\n' "$FIXTURE/index-repo" >"$FIXTURE/sparse-snapshot/.git"
+printf 'malformed target\n' >"$FIXTURE/sparse-snapshot/target.txt"
+set +e
+PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
+    TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" TREEFMT_EXIT_STATUS=23 \
+    TREEFMT_FAILURE_MESSAGE='formatter failed: target.txt' \
+    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    --repo "$FIXTURE/sparse-snapshot" -- target.txt \
+    >"$FIXTURE/sparse-failure.stdout" 2>"$FIXTURE/sparse-failure.stderr"
+sparse_failure_status="$?"
+set -e
+if [[ "$sparse_failure_status" -ne 23 ]]; then
+    echo "FAIL: sparse snapshot did not preserve formatter exit status 23 (got $sparse_failure_status)" >&2
+    exit 1
+fi
+if ! rg -Fq 'formatter failed: target.txt' "$FIXTURE/sparse-failure.stderr"; then
+    echo "FAIL: sparse snapshot omitted the formatter target failure" >&2
+    exit 1
+fi
+if ! rg -Fq '1 file changed' "$FIXTURE/sparse-failure.stderr" ||
+    rg -Fq '4 files changed' "$FIXTURE/sparse-failure.stderr" ||
+    rg -Fq 'unrelated-' "$FIXTURE/sparse-failure.stderr" ||
+    rg -Fq 'malformed target' "$FIXTURE/sparse-failure.stderr"; then
+    echo "FAIL: sparse snapshot reported unrelated tracked files or diff contents" >&2
+    exit 1
+fi
 if ! rg -Fq "options = [\"--config\", \"$FIXTURE/guardrails/prettier.cjs\", \"--check\"]" \
     "$FIXTURE/config-capture.toml" ||
     rg -Fq -- '"--write"' "$FIXTURE/config-capture.toml" ||
