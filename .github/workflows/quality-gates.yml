@@ -8,6 +8,16 @@ on:
         required: false
         default: changed
         type: string
+      development-integrity-evidence:
+        description: Publish a fail-closed, first-attempt push/main CI evidence record.
+        required: false
+        default: false
+        type: boolean
+      development-integrity-guardrails-revision:
+        description: Immutable guardrails SHA pinned by the caller's reusable workflow reference.
+        required: false
+        default: ""
+        type: string
 
 jobs:
   detect_changes:
@@ -44,7 +54,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: noxyzone/guardrails
-          ref: main
+          ref: ${{ inputs.development-integrity-evidence && inputs.development-integrity-guardrails-revision || 'main' }}
           path: .guardrails
           persist-credentials: false
 
@@ -91,7 +101,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: noxyzone/guardrails
-          ref: main
+          ref: ${{ inputs.development-integrity-evidence && inputs.development-integrity-guardrails-revision || 'main' }}
           path: .guardrails
           persist-credentials: false
           lfs: true
@@ -445,7 +455,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: noxyzone/guardrails
-          ref: main
+          ref: ${{ inputs.development-integrity-evidence && inputs.development-integrity-guardrails-revision || 'main' }}
           path: .guardrails
           persist-credentials: false
           lfs: true
@@ -575,3 +585,64 @@ jobs:
             esac
           done
           echo "Quality gates completed"
+
+      - name: Checkout subject for Development Integrity evidence
+        if: ${{ inputs.development-integrity-evidence }}
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Checkout guardrails for Development Integrity evidence
+        if: ${{ inputs.development-integrity-evidence }}
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: noxyzone/guardrails
+          ref: ${{ inputs.development-integrity-guardrails-revision }}
+          path: .guardrails
+          persist-credentials: false
+
+      - name: Create Development Integrity CI evidence
+        if: ${{ inputs.development-integrity-evidence }}
+        env:
+          DEVELOPMENT_INTEGRITY_EVIDENCE: ${{ inputs.development-integrity-evidence }}
+          EXPECTED_GUARDRAILS_REVISION: ${{ inputs.development-integrity-guardrails-revision }}
+          DETECT_RESULT: ${{ needs.detect_changes.result }}
+          UBUNTU_RESULT: ${{ needs.ubuntu_guardrails.result }}
+          MACOS_RESULT: ${{ needs.macos_guardrails.result }}
+          UBUNTU_APPLICABLE: ${{ needs.detect_changes.outputs.ubuntu }}
+          MACOS_APPLICABLE: ${{ (needs.detect_changes.outputs.swift == 'true' || needs.detect_changes.outputs.ast_grep == 'true') && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          [[ "$DEVELOPMENT_INTEGRITY_EVIDENCE" == 'true' ]]
+          [[ "$EXPECTED_GUARDRAILS_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$EXPECTED_GUARDRAILS_REVISION" ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          [[ "$(git rev-parse --show-toplevel)" == "$GITHUB_WORKSPACE" ]]
+          mkdir -p "$RUNNER_TEMP/development-integrity"
+          python3 .guardrails/scripts/development-integrity-ci-evidence.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --operation-id AGENTOPS-64-cutover-v1 \
+            --component-id main-development-chain \
+            --event "$GITHUB_EVENT_NAME" \
+            --branch "$GITHUB_REF_NAME" \
+            --run-id "$GITHUB_RUN_ID" \
+            --attempt "$GITHUB_RUN_ATTEMPT" \
+            --head-sha "$GITHUB_SHA" \
+            --checkout-tree "$(git rev-parse 'HEAD^{tree}')" \
+            --guardrails-sha "$(cd .guardrails && git rev-parse HEAD)" \
+            --detect-result "$DETECT_RESULT" \
+            --ubuntu-result "$UBUNTU_RESULT" \
+            --macos-result "$MACOS_RESULT" \
+            --ubuntu-applicable "$UBUNTU_APPLICABLE" \
+            --macos-applicable "$MACOS_APPLICABLE" \
+            --output "$RUNNER_TEMP/development-integrity/ci-evidence.json"
+
+      - name: Publish Development Integrity CI evidence
+        if: ${{ inputs.development-integrity-evidence }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: quality-gates
+          path: ${{ runner.temp }}/development-integrity/ci-evidence.json
+          if-no-files-found: error
+          retention-days: 30

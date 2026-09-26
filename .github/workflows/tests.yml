@@ -59,6 +59,12 @@ jobs:
             fi
             echo "::endgroup::"
           done
+          echo "::group::Development Integrity CI evidence"
+          if ! python3 tests/development-integrity-ci-evidence-test.py; then
+            echo "::error::Development Integrity CI evidence tests failed"
+            status=1
+          fi
+          echo "::endgroup::"
           exit "$status"
 
   real_tool_tests:

@@ -13,12 +13,22 @@ VENDORED_TOOLS_MANIFEST="$ROOT_DIR/config/vendored-tools.tsv"
 for required in \
     'scope:' \
     'default: changed' \
+    'development-integrity-evidence:' \
+    'default: false' \
+    'development-integrity-guardrails-revision:' \
+    'ref: \$\{\{ inputs\.development-integrity-guardrails-revision \}\}' \
+    'EXPECTED_GUARDRAILS_REVISION: \$\{\{ inputs\.development-integrity-guardrails-revision \}\}' \
+    '\[\[ "\$\(cd \.guardrails && git rev-parse HEAD\)" == "\$EXPECTED_GUARDRAILS_REVISION" \]\]' \
+    'DEVELOPMENT_INTEGRITY_EVIDENCE: \$\{\{ inputs\.development-integrity-evidence \}\}' \
+    'development-integrity-ci-evidence\.py' \
+    'uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' \
+    'name: quality-gates' \
+    'if-no-files-found: error' \
     'quality-gate-scope-args\.sh' \
     'SCOPE_INPUT: \$\{\{ inputs\.scope \}\}' \
     '--scope "\$SCOPE_INPUT"' \
     '--event-name "\$\{\{ github\.event_name \}\}"' \
     'done <"\$scope_args_file"' \
-    'ref: main' \
     'quality-gate-change-detection\.sh' \
     'quality-gate-targets\.sh' \
     'actionlint: \$\{\{ steps\.changed\.outputs\.actionlint \}\}' \
@@ -85,9 +95,23 @@ done
 
 while IFS= read -r guardrails_workflow; do
     repository_count="$(rg -c '^[[:space:]]*repository:[[:space:]]*noxyzone/guardrails$' "$guardrails_workflow")"
-    main_ref_count="$(rg -c '^[[:space:]]*ref:[[:space:]]*main$' "$guardrails_workflow")"
-    if [[ "$repository_count" != "$main_ref_count" ]]; then
-        echo "FAIL: every noxyzone/guardrails checkout must explicitly track main: $guardrails_workflow" >&2
+    main_ref_count="$(rg -c '^[[:space:]]*ref:[[:space:]]*main$' "$guardrails_workflow" || true)"
+    conditional_ref_count="$(rg -c '^          ref: \$\{\{ inputs\.development-integrity-evidence && inputs\.development-integrity-guardrails-revision \|\| '\''main'\'' \}\}$' "$guardrails_workflow" || true)"
+    evidence_ref_count="$(rg -c '^          ref: \$\{\{ inputs\.development-integrity-guardrails-revision \}\}$' "$guardrails_workflow" || true)"
+    main_ref_count="${main_ref_count:-0}"
+    conditional_ref_count="${conditional_ref_count:-0}"
+    evidence_ref_count="${evidence_ref_count:-0}"
+    if [[ "$guardrails_workflow" == "$WORKFLOW" ]]; then
+        [[ "$conditional_ref_count" == 3 && "$evidence_ref_count" == 1 ]] || {
+            echo "FAIL: evidence jobs must share one pinned guardrails revision: $guardrails_workflow" >&2
+            exit 1
+        }
+    elif [[ "$conditional_ref_count" != 0 || "$evidence_ref_count" != 0 ]]; then
+        echo "FAIL: only evidence workflow may use a caller-pinned revision: $guardrails_workflow" >&2
+        exit 1
+    fi
+    if ((repository_count != main_ref_count + conditional_ref_count + evidence_ref_count)); then
+        echo "FAIL: every noxyzone/guardrails checkout must pin main or the evidence revision: $guardrails_workflow" >&2
         exit 1
     fi
 done < <(rg -l 'repository:[[:space:]]*noxyzone/guardrails' "$ROOT_DIR/.github/workflows" --glob '*.yml' --glob '*.yaml')
@@ -288,7 +312,7 @@ if rg -q 'git diff --name-only --diff-filter=ACMRT .* \|\| true' "$WORKFLOW"; th
     exit 1
 fi
 
-if [[ "$(rg -c '^          fetch-depth: 0$' "$WORKFLOW")" != "3" ]]; then
+if [[ "$(rg -c '^          fetch-depth: 0$' "$WORKFLOW")" != "4" ]]; then
     echo "FAIL: every change-scoped job checkout must define fetch-depth: 0" >&2
     exit 1
 fi
