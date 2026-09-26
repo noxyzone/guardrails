@@ -13,11 +13,6 @@ on:
         required: false
         default: false
         type: boolean
-      development-integrity-guardrails-revision:
-        description: Immutable guardrails SHA pinned by the caller's reusable workflow reference.
-        required: false
-        default: ""
-        type: string
 
 jobs:
   detect_changes:
@@ -54,9 +49,21 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: noxyzone/guardrails
-          ref: ${{ inputs.development-integrity-evidence && inputs.development-integrity-guardrails-revision || 'main' }}
+          ref: main
           path: .guardrails
           persist-credentials: false
+
+      - name: Verify Development Integrity workflow revision
+        if: ${{ inputs.development-integrity-evidence }}
+        env:
+          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
+        run: |
+          set -euo pipefail
+          [[ "$(jq -er '.workflow_repository' <<<"$WORKFLOW_JOB_CONTEXT")" == 'noxyzone/guardrails' ]]
+          [[ "$(jq -er '.workflow_file_path' <<<"$WORKFLOW_JOB_CONTEXT")" == '.github/workflows/quality-gates.yml' ]]
+          expected="$(jq -er '.workflow_sha' <<<"$WORKFLOW_JOB_CONTEXT")"
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$expected" ]]
 
       - name: Detect changed files
         id: changed
@@ -101,10 +108,22 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: noxyzone/guardrails
-          ref: ${{ inputs.development-integrity-evidence && inputs.development-integrity-guardrails-revision || 'main' }}
+          ref: main
           path: .guardrails
           persist-credentials: false
           lfs: true
+
+      - name: Verify Development Integrity workflow revision
+        if: ${{ inputs.development-integrity-evidence }}
+        env:
+          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
+        run: |
+          set -euo pipefail
+          [[ "$(jq -er '.workflow_repository' <<<"$WORKFLOW_JOB_CONTEXT")" == 'noxyzone/guardrails' ]]
+          [[ "$(jq -er '.workflow_file_path' <<<"$WORKFLOW_JOB_CONTEXT")" == '.github/workflows/quality-gates.yml' ]]
+          expected="$(jq -er '.workflow_sha' <<<"$WORKFLOW_JOB_CONTEXT")"
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$expected" ]]
 
       - name: Prepare changed-file targets
         env:
@@ -455,10 +474,22 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: noxyzone/guardrails
-          ref: ${{ inputs.development-integrity-evidence && inputs.development-integrity-guardrails-revision || 'main' }}
+          ref: main
           path: .guardrails
           persist-credentials: false
           lfs: true
+
+      - name: Verify Development Integrity workflow revision
+        if: ${{ inputs.development-integrity-evidence }}
+        env:
+          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
+        run: |
+          set -euo pipefail
+          [[ "$(jq -er '.workflow_repository' <<<"$WORKFLOW_JOB_CONTEXT")" == 'noxyzone/guardrails' ]]
+          [[ "$(jq -er '.workflow_file_path' <<<"$WORKFLOW_JOB_CONTEXT")" == '.github/workflows/quality-gates.yml' ]]
+          expected="$(jq -er '.workflow_sha' <<<"$WORKFLOW_JOB_CONTEXT")"
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$expected" ]]
 
       - name: Prepare changed-file targets
         env:
@@ -598,15 +629,27 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: noxyzone/guardrails
-          ref: ${{ inputs.development-integrity-guardrails-revision }}
+          ref: main
           path: .guardrails
           persist-credentials: false
+
+      - name: Verify Development Integrity workflow revision
+        if: ${{ inputs.development-integrity-evidence }}
+        env:
+          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
+        run: |
+          set -euo pipefail
+          [[ "$(jq -er '.workflow_repository' <<<"$WORKFLOW_JOB_CONTEXT")" == 'noxyzone/guardrails' ]]
+          [[ "$(jq -er '.workflow_file_path' <<<"$WORKFLOW_JOB_CONTEXT")" == '.github/workflows/quality-gates.yml' ]]
+          expected="$(jq -er '.workflow_sha' <<<"$WORKFLOW_JOB_CONTEXT")"
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$expected" ]]
 
       - name: Create Development Integrity CI evidence
         if: ${{ inputs.development-integrity-evidence }}
         env:
           DEVELOPMENT_INTEGRITY_EVIDENCE: ${{ inputs.development-integrity-evidence }}
-          EXPECTED_GUARDRAILS_REVISION: ${{ inputs.development-integrity-guardrails-revision }}
+          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
           DETECT_RESULT: ${{ needs.detect_changes.result }}
           UBUNTU_RESULT: ${{ needs.ubuntu_guardrails.result }}
           MACOS_RESULT: ${{ needs.macos_guardrails.result }}
@@ -615,8 +658,9 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$DEVELOPMENT_INTEGRITY_EVIDENCE" == 'true' ]]
-          [[ "$EXPECTED_GUARDRAILS_REVISION" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$EXPECTED_GUARDRAILS_REVISION" ]]
+          expected="$(jq -er '.workflow_sha' <<<"$WORKFLOW_JOB_CONTEXT")"
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$expected" ]]
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           [[ "$(git rev-parse --show-toplevel)" == "$GITHUB_WORKSPACE" ]]
           mkdir -p "$RUNNER_TEMP/development-integrity"

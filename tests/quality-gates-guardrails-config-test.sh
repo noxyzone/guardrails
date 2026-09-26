@@ -15,10 +15,11 @@ for required in \
     'default: changed' \
     'development-integrity-evidence:' \
     'default: false' \
-    'development-integrity-guardrails-revision:' \
-    'ref: \$\{\{ inputs\.development-integrity-guardrails-revision \}\}' \
-    'EXPECTED_GUARDRAILS_REVISION: \$\{\{ inputs\.development-integrity-guardrails-revision \}\}' \
-    '\[\[ "\$\(cd \.guardrails && git rev-parse HEAD\)" == "\$EXPECTED_GUARDRAILS_REVISION" \]\]' \
+    'WORKFLOW_JOB_CONTEXT: \$\{\{ toJSON\(job\) \}\}' \
+    'jq -er '\''.workflow_repository'\'' ' \
+    'jq -er '\''.workflow_file_path'\'' ' \
+    'jq -er '\''.workflow_sha'\'' ' \
+    '\[\[ "\$\(cd \.guardrails && git rev-parse HEAD\)" == "\$expected" \]\]' \
     'DEVELOPMENT_INTEGRITY_EVIDENCE: \$\{\{ inputs\.development-integrity-evidence \}\}' \
     'development-integrity-ci-evidence\.py' \
     'uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' \
@@ -74,12 +75,20 @@ for required in \
     fi
 done
 
-for forbidden in 'guardrails-ref:' 'inputs\.guardrails-ref'; do
+for forbidden in 'guardrails-ref:' 'inputs\.guardrails-ref' 'development-integrity-guardrails-revision:' 'inputs\.development-integrity-guardrails-revision'; do
     if rg -q -- "$forbidden" "$WORKFLOW"; then
         echo "FAIL: QualityGates must not allow callers to override guardrails/main: $forbidden" >&2
         exit 1
     fi
 done
+
+# All jobs that consume guardrails must reject an execution revision mismatch
+# before the opt-in evidence can be published.
+revision_check_count="$(rg -c '^      - name: Verify Development Integrity workflow revision$' "$WORKFLOW" || true)"
+[[ "$revision_check_count" == 4 ]] || {
+    echo 'FAIL: every QualityGates job must verify its executed workflow revision' >&2
+    exit 1
+}
 
 for go_workflow in "$WORKFLOW" "$TESTS_WORKFLOW"; do
     for required in \
@@ -96,22 +105,9 @@ done
 while IFS= read -r guardrails_workflow; do
     repository_count="$(rg -c '^[[:space:]]*repository:[[:space:]]*noxyzone/guardrails$' "$guardrails_workflow")"
     main_ref_count="$(rg -c '^[[:space:]]*ref:[[:space:]]*main$' "$guardrails_workflow" || true)"
-    conditional_ref_count="$(rg -c '^          ref: \$\{\{ inputs\.development-integrity-evidence && inputs\.development-integrity-guardrails-revision \|\| '\''main'\'' \}\}$' "$guardrails_workflow" || true)"
-    evidence_ref_count="$(rg -c '^          ref: \$\{\{ inputs\.development-integrity-guardrails-revision \}\}$' "$guardrails_workflow" || true)"
     main_ref_count="${main_ref_count:-0}"
-    conditional_ref_count="${conditional_ref_count:-0}"
-    evidence_ref_count="${evidence_ref_count:-0}"
-    if [[ "$guardrails_workflow" == "$WORKFLOW" ]]; then
-        [[ "$conditional_ref_count" == 3 && "$evidence_ref_count" == 1 ]] || {
-            echo "FAIL: evidence jobs must share one pinned guardrails revision: $guardrails_workflow" >&2
-            exit 1
-        }
-    elif [[ "$conditional_ref_count" != 0 || "$evidence_ref_count" != 0 ]]; then
-        echo "FAIL: only evidence workflow may use a caller-pinned revision: $guardrails_workflow" >&2
-        exit 1
-    fi
-    if ((repository_count != main_ref_count + conditional_ref_count + evidence_ref_count)); then
-        echo "FAIL: every noxyzone/guardrails checkout must pin main or the evidence revision: $guardrails_workflow" >&2
+    if ((repository_count != main_ref_count)); then
+        echo "FAIL: every noxyzone/guardrails checkout must track main: $guardrails_workflow" >&2
         exit 1
     fi
 done < <(rg -l 'repository:[[:space:]]*noxyzone/guardrails' "$ROOT_DIR/.github/workflows" --glob '*.yml' --glob '*.yaml')

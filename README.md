@@ -46,7 +46,7 @@ jobs:
       scope: all
 ```
 
-Development IntegrityのCI証拠生成は`development-integrity-evidence`入力の既定値を`false`にして隔離しています。有効化した`noxyzone/nocturnalzone`の`push/main`、初回attempt、必要jobの成功と不要jobの明示的なskipが一致する場合だけ、`quality_gates`jobが`quality-gates`artifactを作ります。通常のPR callerからは生成しません。有効化するcallerは再利用workflowの`uses: ...@<40桁SHA>`と`development-integrity-guardrails-revision: <同じSHA>`を一致させて固定する必要があります。証拠モードでは変更検出・Ubuntu・macOSの各検査と生成helperが同じSHAのguardrailsをcheckoutします。入力未設定・SHA不一致では証拠を生成しません。この証拠だけでactivationやAggregate成功は判定しません。
+Development IntegrityのCI証拠生成は`development-integrity-evidence`入力の既定値を`false`にして隔離しています。有効化した`noxyzone/nocturnalzone`の`push/main`、初回attempt、必要jobの成功と不要jobの明示的なskipが一致する場合だけ、`quality_gates`jobが`quality-gates`artifactを作ります。通常のPR callerからは生成しません。callerは通常どおり再利用workflowを`@main`で呼び、内部checkoutも常に`ref: main`を使います。証拠モードでは変更検出・Ubuntu・macOSの各検査jobと生成jobが、実際のcheckout SHAをそのjobを定義した再利用workflowの`job.workflow_sha`へ照合します。実行中の`main`更新などで一致しない場合は証拠を生成しません。この証拠だけでactivationやAggregate成功は判定しません。
 
 TextSpacingとLocalizationはCIとローカル確認で同じ実装を使います。手動・定期・release前backstopの全量確認では次を実行します。通常の作業完了時にはTextSpacingの`--all`を自動実行しません。
 
