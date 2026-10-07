@@ -22,9 +22,10 @@ printf 'reviewrは不採用。\n' >"$TMP_ROOT/standalone.md"
 printf 'memex/reviewrは不採用。\n' >"$TMP_ROOT/slash-form.md"
 printf 'persiyanov/herdr-reviewrは不採用。\n' >"$TMP_ROOT/full-selector.md"
 printf 'runnでscenario testを実行する。\n' >"$TMP_ROOT/runn.md"
-for fixture_file in standalone.md slash-form.md full-selector.md runn.md; do
+printf 'Relace: Relace Search\n' >"$TMP_ROOT/relace.md"
+for fixture_file in standalone.md slash-form.md full-selector.md runn.md relace.md; do
     if ! typos --isolated --force-exclude --config "$CONFIG" "$TMP_ROOT/$fixture_file" >/dev/null; then
-        echo "FAIL: typos.toml must allow the reviewr product name: $fixture_file" >&2
+        echo "FAIL: typos.toml must allow product names: $fixture_file" >&2
         exit 1
     fi
 done
