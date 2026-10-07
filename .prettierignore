@@ -21,6 +21,7 @@
 
 # 生成物
 **/knowledge/wiki/state.json
+**/*.xcodeproj/xcshareddata/xcodecloud/manifest.json
 
 # AIDLC配布・生成物
 **/.aidlc-rule-details/**
