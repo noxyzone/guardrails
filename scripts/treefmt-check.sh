@@ -6,11 +6,18 @@ fail() {
     exit 1
 }
 
+# timeout診断の分離に使う動的FD割当({varname}>&2)はbash 4.1以降の機能のため、
+# それ以前のbashでは起動直後に利用条件を示して失敗させる。
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 1))); then
+    fail "bash 4.1 or later is required for treefmt-check.sh (got ${BASH_VERSION})"
+fi
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 guardrails_dir="$(cd "$script_dir/.." && pwd)"
 repo_root="."
 treefmt_exclusions_path=""
 treefmt_config_path=""
+treefmt_timeout_log_path=""
 treefmt_mode="check"
 treefmt_args=()
 treefmt_timeout_seconds="${TREEFMT_TIMEOUT_SECONDS:-60}"
@@ -59,6 +66,9 @@ cleanup() {
     if [[ -n "$treefmt_config_path" ]]; then
         rm -f "$treefmt_config_path"
     fi
+    if [[ -n "$treefmt_timeout_log_path" ]]; then
+        rm -f "$treefmt_timeout_log_path"
+    fi
 }
 trap cleanup EXIT
 
@@ -89,43 +99,50 @@ case "$treefmt_timeout_seconds" in
     ;;
 esac
 
+# GNU coreutilsのtimeoutへ実行期限を委譲する。PATH上のtimeout（Ubuntu CI、Nix環境）、
+# 次いでHomebrew coreutilsのgtimeoutを解決し、GNU版でなければ導入要件を示して失敗する。
+treefmt_timeout_bin=""
+if command -v timeout >/dev/null 2>&1; then
+    treefmt_timeout_bin="$(command -v timeout)"
+elif command -v gtimeout >/dev/null 2>&1; then
+    treefmt_timeout_bin="$(command -v gtimeout)"
+else
+    fail "GNU coreutils timeout is required; on macOS install coreutils via Homebrew"
+fi
+if ! "$treefmt_timeout_bin" --version 2>/dev/null | grep -q 'GNU coreutils'; then
+    fail "GNU coreutils timeout is required, but $treefmt_timeout_bin is not GNU coreutils"
+fi
+
 run_with_timeout() {
     local timeout_seconds="$1"
-    local timeout_marker
-    local command_pid
-    local watchdog_pid
-    local status
+    local status=0
+    local stderr_dup_fd
+    local saved_lc_all="${LC_ALL-}"
 
     shift
-    timeout_marker="$(mktemp "${TMPDIR:-/tmp}/treefmt-timeout.XXXXXX")"
-    rm -f "$timeout_marker"
-
-    "$@" &
-    command_pid="$!"
-    (
-        sleep "$timeout_seconds"
-        if kill -0 "$command_pid" 2>/dev/null; then
-            : >"$timeout_marker"
-            kill "$command_pid" 2>/dev/null || true
-            sleep 1
-            kill -9 "$command_pid" 2>/dev/null || true
-        fi
-    ) &
-    watchdog_pid="$!"
-
-    if wait "$command_pid"; then
-        status=0
-    else
-        status="$?"
-    fi
-    kill "$watchdog_pid" 2>/dev/null || true
-    wait "$watchdog_pid" 2>/dev/null || true
-
-    if [[ -e "$timeout_marker" ]]; then
-        rm -f "$timeout_marker"
+    # --foregroundを付けないためtimeoutはcommandを独立process groupへ置き、期限超過時に
+    # groupへTERM、--kill-afterの猶予後にKILLする。このscriptはwatchdogの子プロセスを
+    # 持たないため、正常終了後に期限分のsleepを残さない。formatter自身が残す子孫の
+    # cleanupはこのwrapperの保証範囲外である。
+    #
+    # timeout自身のstderrだけをprivate logへ分離する。helperがformatterのstderrを
+    # 複製FD経由で本来のstreamへ戻すため、logにはGNU timeoutの--verbose診断だけが
+    # 残る。発火の有無はこのlogでのみ判定し、status 124/137だけを根拠に書き換えない
+    # ため、formatter自身の正常終了statusはそのまま保存される。診断の文言を固定する
+    # ためtimeoutだけをLC_ALL=Cで起動し、formatterのLC_ALLはhelperが元の値へ戻す。
+    exec {stderr_dup_fd}>&2
+    treefmt_timeout_log_path="$(mktemp "${TMPDIR:-/tmp}/treefmt-timeout.XXXXXX")"
+    # timeout診断の識別用のLC_ALL=Cをformatterへ渡さないため、先に元の値を退避する。
+    LC_ALL=C NZ_TREEFMT_SAVED_LC_ALL="$saved_lc_all" \
+        "$treefmt_timeout_bin" --verbose --kill-after=1s "${timeout_seconds}s" \
+        "$script_dir/treefmt-timeout-command.sh" "$stderr_dup_fd" "$@" \
+        2>"$treefmt_timeout_log_path" || status="$?"
+    exec {stderr_dup_fd}>&-
+    if grep -Fq 'timeout: sending signal ' "$treefmt_timeout_log_path"; then
         fail "treefmt timed out after ${timeout_seconds}s"
     fi
-    rm -f "$timeout_marker"
+    rm -f "$treefmt_timeout_log_path"
+    treefmt_timeout_log_path=""
     return "$status"
 }
 

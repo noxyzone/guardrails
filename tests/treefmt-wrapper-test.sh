@@ -45,6 +45,8 @@ FIXTURE="$(mktemp -d)"
 trap 'rm -rf "$FIXTURE"' EXIT
 mkdir -p "$FIXTURE/guardrails/scripts" "$FIXTURE/bin" "$FIXTURE/repo"
 ln -s "$SCRIPT" "$FIXTURE/guardrails/scripts/treefmt-check.sh"
+ln -s "$ROOT_DIR/scripts/treefmt-timeout-command.sh" \
+    "$FIXTURE/guardrails/scripts/treefmt-timeout-command.sh"
 printf '%s\n' \
     '[formatter.prettier]' \
     'command = "prettier"' \
@@ -138,7 +140,7 @@ fi
 printf 'module.exports = {};\n' >"$FIXTURE/guardrails/prettier.cjs"
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
     TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
     --repo "$FIXTURE/repo" >/dev/null 2>&1; then
     echo "FAIL: treefmt-check.sh rejected an empty explicit path list" >&2
     exit 1
@@ -152,7 +154,7 @@ fi
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
     TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
     TREEFMT_ARGS_CAPTURE="$FIXTURE/treefmt-args" \
-    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
     --repo "$FIXTURE/repo" -- --write --check --repo reserved-path \
     >/dev/null 2>&1; then
     echo "FAIL: treefmt-check.sh rejected reserved-word paths after --" >&2
@@ -179,7 +181,7 @@ printf 'sensitive-fixture-value\n' >"$FIXTURE/repo/sensitive.txt"
 set +e
 PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
     TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" TREEFMT_EXIT_STATUS=23 \
-    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
     --repo "$FIXTURE/repo" -- sensitive.txt >"$FIXTURE/treefmt-failure.stdout" \
     2>"$FIXTURE/treefmt-failure.stderr"
 treefmt_failure_status="$?"
@@ -203,7 +205,7 @@ set +e
 PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
     TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" TREEFMT_EXIT_STATUS=23 \
     TREEFMT_FAILURE_MESSAGE='formatter failed: sensitive.txt' \
-    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
     --repo "$FIXTURE/repo" >"$FIXTURE/worktree-failure.stdout" \
     2>"$FIXTURE/worktree-failure.stderr"
 worktree_failure_status="$?"
@@ -238,7 +240,7 @@ set +e
 PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
     TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" TREEFMT_EXIT_STATUS=23 \
     TREEFMT_FAILURE_MESSAGE='formatter failed: target.txt' \
-    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
     --repo "$FIXTURE/sparse-snapshot" -- target.txt \
     >"$FIXTURE/sparse-failure.stdout" 2>"$FIXTURE/sparse-failure.stderr"
 sparse_failure_status="$?"
@@ -271,7 +273,7 @@ fi
 
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
     TREEFMT_CONFIG_CAPTURE="$FIXTURE/write-config-capture.toml" \
-    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
     --write --repo "$FIXTURE/repo" >/dev/null 2>&1; then
     echo "FAIL: treefmt-check.sh rejected write mode" >&2
     exit 1
@@ -293,7 +295,7 @@ printf 'existing swiftformat\n' >"$FIXTURE/repo/.guardrails/.swiftformat"
 printf 'existing editorconfig\n' >"$FIXTURE/repo/.editorconfig"
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
     TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
     --repo "$FIXTURE/repo" >/dev/null 2>&1; then
     echo "FAIL: treefmt-check.sh rejected an existing guardrails checkout" >&2
     exit 1
@@ -311,7 +313,7 @@ rm "$FIXTURE/repo/.editorconfig"
 ln -s missing-guardrails "$FIXTURE/repo/.guardrails"
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
     TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
     --repo "$FIXTURE/repo" >/dev/null 2>&1; then
     echo "FAIL: treefmt-check.sh rejected an unrelated broken repo-local guardrails symlink" >&2
     exit 1
@@ -326,7 +328,7 @@ rm "$FIXTURE/repo/.guardrails"
 ln -s ../outside-editorconfig "$FIXTURE/repo/.editorconfig"
 if ! PATH="$FIXTURE/bin:$PATH" TREEFMT_INVOKED_FILE="$FIXTURE/treefmt-invoked" \
     TREEFMT_CONFIG_CAPTURE="$FIXTURE/config-capture.toml" \
-    /bin/bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
+    bash "$FIXTURE/guardrails/scripts/treefmt-check.sh" \
     --repo "$FIXTURE/repo" >/dev/null 2>&1; then
     echo "FAIL: treefmt-check.sh rejected an unrelated dangling editorconfig symlink" >&2
     exit 1
@@ -337,5 +339,11 @@ if [[ ! -L "$FIXTURE/repo/.editorconfig" ]] ||
     exit 1
 fi
 rm "$FIXTURE/repo/.editorconfig"
+
+# guardrail-allow: language-delegation -- 引数無し、stdoutへ要約のみ、終了statusをそのまま伝播する。
+if ! python3 "$ROOT_DIR/tests/treefmt-timeout-fd-test.py"; then
+    echo "FAIL: treefmt timeout FD regression test failed" >&2
+    exit 1
+fi
 
 echo "PASS"

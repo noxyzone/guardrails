@@ -71,6 +71,8 @@ scripts/typos-check.sh --staged --repo /path/to/repo
 
 pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstaged file一覧を、Actionlint、TextSpacing、Localization、Typosを含む各ゲートへ渡します。Actionlintは`.github/workflows`直下のworkflowだけを対象にし、`-shellcheck= -pyflakes=`で外部linter連携を無効化します。shell scriptは既存のShellCheckゲートが独立して検査します。GoFormatの共有scriptは`gofmt -l`でcheck-only検査し、worktreeやindexを更新しません。
 
+ローカルから`scripts/treefmt-check.sh`を使う環境には、GNU coreutilsの`timeout`が必要です。PATH上の`timeout`（Ubuntu CI・Nix環境）、次いでHomebrew coreutilsの`gtimeout`を順に解決し、GNU版を利用できない場合は失敗します。formatterの実行期限はこのtimeoutが管理しますが、formatter自身が正常終了後に残す子孫のcleanupは保証しません。また、期限発火の診断をformatter出力から分離するためにbash 4.1以降の動的FD割当を使うため、このwrapperの実行には4.1以降の`bash`が必要です。macOSの`/bin/bash`（3.2）では起動直後に失敗するため、PATH上の新しい`bash`を使ってください。
+
 ## 除外ルール
 
 - GitIdentity
