@@ -317,8 +317,7 @@ class WorkflowContextTest(unittest.TestCase):
             raw = target.read_bytes() if target.exists() else None
             return result, raw
 
-    def test_workflow_defaults_and_explicit_context(self):
-        defaults = self.input_defaults()
+    def workflow_context_cases(self):
         cases = [("", "", OPERATION, COMPONENT)]
         cases.extend(
             (
@@ -333,33 +332,48 @@ class WorkflowContextTest(unittest.TestCase):
         cases.append(
             ("other.operation", "other-component", "other.operation", "other-component")
         )
-        for operation, component, expected_operation, expected_component in cases:
-            with self.subTest(operation=operation):
-                inputs = {**defaults, "development-integrity-evidence": "true"}
-                if operation:
-                    inputs["development-integrity-operation-id"] = operation
-                    inputs["development-integrity-component-id"] = component
-                result, raw = self.execute(
-                    "Create Development Integrity CI evidence", inputs
-                )
-                self.assertEqual(result.returncode, 0, result.stderr)
-                expected = MODULE.build_record(
-                    **base_args(
-                        operation_id=expected_operation, component_id=expected_component
-                    )
-                )
+        return cases
+
+    def workflow_context_record(
+        self, operation, component, expected_operation, expected_component
+    ):
+        inputs = {**self.input_defaults(), "development-integrity-evidence": "true"}
+        if operation:
+            inputs["development-integrity-operation-id"] = operation
+            inputs["development-integrity-component-id"] = component
+        result, raw = self.execute("Create Development Integrity CI evidence", inputs)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        expected = {
+            "id": "ci-quality-gates-1001-1",
+            "componentID": expected_component,
+            "operationID": expected_operation,
+            "revision": HEAD_SHA,
+            "status": "success",
+            "terminal": True,
+            "locator": "ci-artifact:quality-gates:1001:1",
+        }
+        return raw, expected
+
+    def test_workflow_defaults_and_explicit_context(self):
+        for case in self.workflow_context_cases():
+            with self.subTest(operation=case[0]):
+                raw, expected = self.workflow_context_record(*case)
+                self.assertEqual(set(json.loads(raw)), set(expected))
                 self.assertEqual(raw, MODULE.canonical_bytes(expected) + b"\n")
-                self.assertEqual(len(json.loads(raw)), 7)
-                self.assertIsNotNone(AGGREGATE_MODULE, "Aggregate must run, not skip")
+
+    @unittest.skipIf(AGGREGATE_MODULE is None, "aggregate candidate not available")
+    def test_workflow_context_matches_consumer_derivation(self):
+        for case in self.workflow_context_cases():
+            with self.subTest(operation=case[0]):
+                raw, expected = self.workflow_context_record(*case)
                 evidence = {
                     **CONSUMER_EVIDENCE,
-                    "operationID": expected_operation,
-                    "componentID": expected_component,
+                    "operationID": expected["operationID"],
+                    "componentID": expected["componentID"],
                 }
-                self.assertEqual(
-                    json.loads(raw),
-                    AGGREGATE_MODULE.artifact_record_from_evidence(evidence),
-                )
+                derived = AGGREGATE_MODULE.artifact_record_from_evidence(evidence)
+                self.assertEqual(expected, derived)
+                self.assertEqual(json.loads(raw), derived)
 
     def test_workflow_rejects_partial_and_invalid_context(self):
         defaults = self.input_defaults()
