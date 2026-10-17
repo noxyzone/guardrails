@@ -165,6 +165,13 @@ def write_record(path, record):
         os.close(directory)
 
 
+def _workflow_context(operation_id, component_id):
+    """Resolve only the workflow's explicitly empty pair at the CLI boundary."""
+    if operation_id == "" and component_id == "":
+        return "AGENTOPS-64-cutover-v1", "main-development-chain"
+    return operation_id, component_id
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository", required=True)
@@ -192,10 +199,13 @@ def main(argv=None):
     )
     parser.add_argument("--output", required=True)
     arguments = parser.parse_args(argv)
+    operation_id, component_id = _workflow_context(
+        arguments.operation_id, arguments.component_id
+    )
     record = build_record(
         repository=arguments.repository,
-        operation_id=arguments.operation_id,
-        component_id=arguments.component_id,
+        operation_id=operation_id,
+        component_id=component_id,
         event=arguments.event,
         branch=arguments.branch,
         run_id=arguments.run_id,

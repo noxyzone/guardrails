@@ -14,7 +14,14 @@ for required in \
     'scope:' \
     'default: changed' \
     'development-integrity-evidence:' \
+    'development-integrity-operation-id:' \
+    'development-integrity-component-id:' \
     'default: false' \
+    'name: Validate Development Integrity context inputs' \
+    'DEVELOPMENT_INTEGRITY_OPERATION_ID: \$\{\{ inputs\.development-integrity-operation-id \}\}' \
+    'DEVELOPMENT_INTEGRITY_COMPONENT_ID: \$\{\{ inputs\.development-integrity-component-id \}\}' \
+    '--operation-id "\$DEVELOPMENT_INTEGRITY_OPERATION_ID"' \
+    '--component-id "\$DEVELOPMENT_INTEGRITY_COMPONENT_ID"' \
     'WORKFLOW_JOB_CONTEXT: \$\{\{ toJSON\(job\) \}\}' \
     'jq -er '\''.workflow_repository'\'' ' \
     'jq -er '\''.workflow_file_path'\'' ' \

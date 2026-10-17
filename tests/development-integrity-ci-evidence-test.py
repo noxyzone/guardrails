@@ -4,8 +4,11 @@
 import importlib.util
 import json
 import os
+import re
 import stat
+import subprocess
 import sys
+import textwrap
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -222,6 +225,224 @@ class RejectTest(unittest.TestCase):
 
     def test_rejects_empty_operation_id(self):
         self.assert_rejected(operation_id="")
+
+
+class WorkflowContextTest(unittest.TestCase):
+    workflow = SCRIPT.parent.parent / ".github/workflows/quality-gates.yml"
+
+    def input_defaults(self):
+        source = self.workflow.read_text()
+        defaults = {}
+        for name, body in re.findall(
+            r"^      (development-integrity-[\w-]+):\n(.*?)(?=^      \S|^jobs:)",
+            source,
+            re.M | re.S,
+        ):
+            value = re.search(r"^        default: (.*)$", body, re.M).group(1)
+            defaults[name] = value.strip("\"'")
+            self.assertRegex(body, r"(?m)^        required: false$")
+            expected_type = "boolean" if name.endswith("-evidence") else "string"
+            self.assertRegex(body, rf"(?m)^        type: {expected_type}$")
+        self.assertEqual(defaults["development-integrity-evidence"], "false")
+        for name in ("operation", "component"):
+            self.assertEqual(defaults[f"development-integrity-{name}-id"], "")
+        return defaults
+
+    def step(self, name, inputs):
+        source = self.workflow.read_text()
+        match = re.search(
+            rf"^      - name: {re.escape(name)}\n(.*?)(?=^      - name:|\Z)",
+            source,
+            re.M | re.S,
+        )
+        self.assertIsNotNone(match, name)
+        body = match.group(1)
+        run = textwrap.dedent(body.split("        run: |\n", 1)[1])
+        self.assertNotIn("${{", run)
+        env = {}
+        for variable, key in re.findall(
+            r"^          (\w+): \$\{\{ inputs\.([\w-]+) \}\}$", body, re.M
+        ):
+            env[variable] = inputs[key]
+        return run, env
+
+    def execute(self, name, inputs):
+        run, env = self.step(name, inputs)
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            (root / ".guardrails").symlink_to(SCRIPT.parent.parent)
+            tools = root / "tools"
+            tools.mkdir()
+            git = tools / "git"
+            git.write_text(
+                "#!/usr/bin/env bash\nset -euo pipefail\n"
+                'case "$*" in\n'
+                "  'rev-parse HEAD')\n"
+                '    if [[ "$PWD" == "$GITHUB_WORKSPACE" ]]; then\n'
+                '      printf "%s\\n" "$GITHUB_SHA"\n'
+                '    else printf "%s\\n" "$TEST_GUARDRAILS_SHA"; fi ;;\n'
+                "  'rev-parse HEAD^{tree}') printf '%s\\n' "
+                f"'{CHECKOUT_TREE}' ;;\n"
+                "  'rev-parse --show-toplevel') "
+                'printf "%s\\n" "$GITHUB_WORKSPACE" ;;\n'
+                "  *) exit 97 ;;\nesac\n"
+            )
+            git.chmod(0o700)
+            script = root / "step.sh"
+            script.write_text(run)
+            environment = {
+                **os.environ,
+                "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+                "RUNNER_TEMP": str(root),
+                "GITHUB_WORKSPACE": str(root),
+                "GITHUB_SHA": HEAD_SHA,
+                "GITHUB_REPOSITORY": REPOSITORY,
+                "GITHUB_EVENT_NAME": "push",
+                "GITHUB_REF_NAME": "main",
+                "GITHUB_RUN_ID": "1001",
+                "GITHUB_RUN_ATTEMPT": "1",
+                "WORKFLOW_JOB_CONTEXT": json.dumps({"workflow_sha": GUARDRAILS_SHA}),
+                "TEST_GUARDRAILS_SHA": GUARDRAILS_SHA,
+                "DETECT_RESULT": "success",
+                "UBUNTU_RESULT": "success",
+                "MACOS_RESULT": "success",
+                "UBUNTU_APPLICABLE": "true",
+                "MACOS_APPLICABLE": "true",
+                **env,
+            }
+            result = subprocess.run(
+                ["bash", str(script)], cwd=root, env=environment, capture_output=True
+            )
+            target = root / "development-integrity" / "ci-evidence.json"
+            raw = target.read_bytes() if target.exists() else None
+            return result, raw
+
+    def test_workflow_defaults_and_explicit_context(self):
+        defaults = self.input_defaults()
+        cases = [("", "", OPERATION, COMPONENT)]
+        cases.extend(
+            (
+                f"{chain}.NZ-158.test",
+                f"{chain}-development-chain",
+                f"{chain}.NZ-158.test",
+                f"{chain}-development-chain",
+            )
+            for chain in ("jira", "quick")
+        )
+        # The builder is not an authorization allowlist for chain names.
+        cases.append(
+            ("other.operation", "other-component", "other.operation", "other-component")
+        )
+        for operation, component, expected_operation, expected_component in cases:
+            with self.subTest(operation=operation):
+                inputs = {**defaults, "development-integrity-evidence": "true"}
+                if operation:
+                    inputs["development-integrity-operation-id"] = operation
+                    inputs["development-integrity-component-id"] = component
+                result, raw = self.execute(
+                    "Create Development Integrity CI evidence", inputs
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                expected = MODULE.build_record(
+                    **base_args(
+                        operation_id=expected_operation, component_id=expected_component
+                    )
+                )
+                self.assertEqual(raw, MODULE.canonical_bytes(expected) + b"\n")
+                self.assertEqual(len(json.loads(raw)), 7)
+                self.assertIsNotNone(AGGREGATE_MODULE, "Aggregate must run, not skip")
+                evidence = {
+                    **CONSUMER_EVIDENCE,
+                    "operationID": expected_operation,
+                    "componentID": expected_component,
+                }
+                self.assertEqual(
+                    json.loads(raw),
+                    AGGREGATE_MODULE.artifact_record_from_evidence(evidence),
+                )
+
+    def test_workflow_rejects_partial_and_invalid_context(self):
+        defaults = self.input_defaults()
+        for operation, component in (
+            ("native", ""),
+            ("", "main-development-chain"),
+            (" ", "main-development-chain"),
+            ("native", " main-development-chain"),
+            ("bad/operation", "main-development-chain"),
+            ("native", "Bad_Component"),
+        ):
+            with self.subTest(operation=operation, component=component):
+                result, raw = self.execute(
+                    "Create Development Integrity CI evidence",
+                    {
+                        **defaults,
+                        "development-integrity-evidence": "true",
+                        "development-integrity-operation-id": operation,
+                        "development-integrity-component-id": component,
+                    },
+                )
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn(b"ci-evidence: result=blocked reason=", result.stderr)
+                self.assertIsNone(raw)
+
+    def test_disabled_context_guard_executes_actual_step(self):
+        defaults = self.input_defaults()
+        for flag, operation, component, allowed in (
+            ("false", "", "", True),
+            ("false", "native", "", False),
+            ("false", "", "main-development-chain", False),
+            ("false", "native", "main-development-chain", False),
+            ("false", " ", "", False),
+            ("true", "native", "main-development-chain", True),
+            ("true", "", "", True),
+        ):
+            with self.subTest(flag=flag, operation=operation, component=component):
+                result, raw = self.execute(
+                    "Validate Development Integrity context inputs",
+                    {
+                        **defaults,
+                        "development-integrity-evidence": flag,
+                        "development-integrity-operation-id": operation,
+                        "development-integrity-component-id": component,
+                    },
+                )
+                self.assertEqual(result.returncode == 0, allowed, result.stderr)
+                self.assertIsNone(raw)
+
+    def test_cli_context_flags_remain_required(self):
+        for flag in ("--operation-id", "--component-id"):
+            argv = []
+            for key, value in base_args().items():
+                option = "--" + key.replace("_", "-")
+                if option != flag:
+                    argv.extend(
+                        (
+                            option,
+                            str(value).lower()
+                            if isinstance(value, bool)
+                            else str(value),
+                        )
+                    )
+            argv.extend(("--output", "unused.json"))
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), *argv], capture_output=True
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn(flag.encode(), result.stderr)
+
+    def test_direct_api_does_not_default_or_accept_wrong_types(self):
+        for operation, component in (
+            ("", ""),
+            (None, COMPONENT),
+            (OPERATION, None),
+            (True, COMPONENT),
+            (OPERATION, 1),
+        ):
+            with self.subTest(operation=operation, component=component):
+                with self.assertRaises(MODULE.Reject):
+                    MODULE.build_record(
+                        **base_args(operation_id=operation, component_id=component)
+                    )
 
 
 class OutputTest(unittest.TestCase):
