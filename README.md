@@ -46,9 +46,9 @@ jobs:
       scope: all
 ```
 
-Development IntegrityのCI証拠生成は`development-integrity-evidence`入力の既定値を`false`にして隔離しています。有効化した`noxyzone/nocturnalzone`の`push/main`、初回attempt、必要jobの成功と不要jobの明示的なskipが一致する場合だけ、`quality_gates`jobが`quality-gates`artifactを作ります。通常のPR callerからは生成しません。callerは通常どおり再利用workflowを`@main`で呼び、内部checkoutも常に`ref: main`を使います。証拠モードでは変更検出・Ubuntu・macOSの各検査jobと生成jobが、実際のcheckout SHAをそのjobを定義した再利用workflowの`job.workflow_sha`へ照合します。実行中の`main`更新などで一致しない場合は証拠を生成しません。この証拠だけでactivationやAggregate成功は判定しません。
+Development IntegrityのCI証拠生成は`development-integrity-evidence`入力の既定値を`false`にして隔離しています。有効化した`noxyzone/nocturnalzone`の`push/main`、初回attempt、必要jobの成功と不要jobの明示的なskipが一致する場合だけ、`quality_gates`jobが`quality-gates`artifactを作ります。通常のPR callerからは生成しません。既定無効のGitZone準備では`noxyzone/gitzone`の非fork PR、base `develop`、明示operation/componentの両方が必要です。callerは通常どおり再利用workflowを`@main`で呼び、内部checkoutも常に`ref: main`を使います。証拠モードでは変更検出・Ubuntu・macOSの各検査jobと生成jobが、実際のcheckout SHAをそのjobを定義した再利用workflowの`job.workflow_sha`へ照合します。実行中の`main`更新などで一致しない場合は証拠を生成しません。evidenceが`true`のPRでは全検査jobと生成jobのsubject checkoutをPR head SHAへ揃え、各jobがHEADを自己確認します。evidenceが`false`またはpushの場合は従来のcheckout既定を維持します。この証拠だけでactivationやAggregate成功は判定しません。
 
-任意の`development-integrity-operation-id`と`development-integrity-component-id`は空文字列が既定です。両方が厳密に空の場合だけ従来の`AGENTOPS-64-cutover-v1`/`main-development-chain`を使い、片方だけの指定や形式不正は拒否します。`development-integrity-evidence: false`でcontextを指定した場合も拒否します。これらの文字列は認可ではなく、readerが固定Contract、chain由来のcontext、対象commitと元artifactの完全一致を確認します。新入力はcallerで有効化しておらず、RootはMain-only、GitZoneのCI selectorは未対応で、native実案件資格は未成立です。tree引数は形式検査だけに使い、recordへ追加せず、実行tree全体の証明とはしません。
+任意の`development-integrity-operation-id`と`development-integrity-component-id`は空文字列が既定です。Rootで両方が厳密に空の場合だけ従来の`AGENTOPS-64-cutover-v1`/`main-development-chain`を使い、片方だけの指定や形式不正は拒否します。`development-integrity-evidence: false`でcontextを指定した場合も拒否します。これらの文字列は認可ではなく、readerが固定Contract、chain由来のcontext、対象commitと元artifactの完全一致を確認します。新入力はcallerで有効化しておらず、RootはMain-onlyです。GitZone readerはmetadata対応照合に限定し、実caller・生成job・checkoutの外部証明、branch承認、baseの最新性、native実案件資格は全て未成立です。PR/Hermes承認や全CI資格へ昇格しません。offline fixtureは実APIや実案件資格の証拠ではありません。tree引数は形式検査だけに使い、recordへ追加せず、実行tree全体の証明とはしません。
 
 TextSpacingとLocalizationはCIとローカル確認で同じ実装を使います。手動・定期・release前backstopの全量確認では次を実行します。通常の作業完了時にはTextSpacingの`--all`を自動実行しません。
 

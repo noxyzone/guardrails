@@ -103,13 +103,24 @@ def build_record(
     macos_result,
     ubuntu_applicable,
     macos_applicable,
+    head_repository=None,
+    base_ref=None,
 ):
-    if repository != ALLOWED_REPOSITORY:
-        raise Reject("repository is not the allowed identity")
-    if event != ALLOWED_EVENT:
-        raise Reject("event must be push")
-    if branch != ALLOWED_BRANCH:
-        raise Reject("branch must be main")
+    if repository == "noxyzone/gitzone":
+        if (
+            event != "pull_request"
+            or head_repository != repository
+            or base_ref != "develop"
+        ):
+            raise Reject("GitZone requires a canonical non-fork PR targeting develop")
+        require_string(branch, "PR head ref")
+    else:
+        if repository != ALLOWED_REPOSITORY:
+            raise Reject("repository is not the allowed identity")
+        if event != ALLOWED_EVENT:
+            raise Reject("event must be push")
+        if branch != ALLOWED_BRANCH:
+            raise Reject("branch must be main")
     run_id = require_run_id(run_id)
     attempt = require_attempt(attempt)
     operation_id = require_string(operation_id, "operation-id", IDENTIFIER)
@@ -165,9 +176,9 @@ def write_record(path, record):
         os.close(directory)
 
 
-def _workflow_context(operation_id, component_id):
-    """Resolve only the workflow's explicitly empty pair at the CLI boundary."""
-    if operation_id == "" and component_id == "":
+def _workflow_context(operation_id, component_id, *, repository=ALLOWED_REPOSITORY):
+    """Resolve only Root's explicitly empty pair at the CLI boundary."""
+    if repository == ALLOWED_REPOSITORY and operation_id == "" and component_id == "":
         return "AGENTOPS-64-cutover-v1", "main-development-chain"
     return operation_id, component_id
 
@@ -179,6 +190,8 @@ def main(argv=None):
     parser.add_argument("--component-id", required=True)
     parser.add_argument("--event", required=True)
     parser.add_argument("--branch", required=True)
+    parser.add_argument("--head-repository")
+    parser.add_argument("--base-ref")
     parser.add_argument("--run-id", required=True, type=int)
     parser.add_argument("--attempt", required=True, type=int)
     parser.add_argument("--head-sha", required=True)
@@ -200,7 +213,7 @@ def main(argv=None):
     parser.add_argument("--output", required=True)
     arguments = parser.parse_args(argv)
     operation_id, component_id = _workflow_context(
-        arguments.operation_id, arguments.component_id
+        arguments.operation_id, arguments.component_id, repository=arguments.repository
     )
     record = build_record(
         repository=arguments.repository,
@@ -208,6 +221,8 @@ def main(argv=None):
         component_id=component_id,
         event=arguments.event,
         branch=arguments.branch,
+        head_repository=arguments.head_repository,
+        base_ref=arguments.base_ref,
         run_id=arguments.run_id,
         attempt=arguments.attempt,
         head_sha=arguments.head_sha,

@@ -266,8 +266,15 @@ class WorkflowContextTest(unittest.TestCase):
             env[variable] = inputs[key]
         return run, env
 
-    def execute(self, name, inputs):
+    def execute(self, name, inputs, *, context=None):
         run, env = self.step(name, inputs)
+        subject_context = {
+            "EXPECTED_SUBJECT": HEAD_SHA,
+            "SUBJECT_BRANCH": "main",
+            "HEAD_REPOSITORY": REPOSITORY,
+            "PR_BASE_REF": "",
+            **(context or {}),
+        }
         with TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             (root / ".guardrails").symlink_to(SCRIPT.parent.parent)
@@ -309,6 +316,7 @@ class WorkflowContextTest(unittest.TestCase):
                 "UBUNTU_APPLICABLE": "true",
                 "MACOS_APPLICABLE": "true",
                 **env,
+                **subject_context,
             }
             result = subprocess.run(
                 ["bash", str(script)], cwd=root, env=environment, capture_output=True
@@ -457,6 +465,111 @@ class WorkflowContextTest(unittest.TestCase):
                     MODULE.build_record(
                         **base_args(operation_id=operation, component_id=component)
                     )
+
+
+class GitZoneMetadataTest(unittest.TestCase):
+    def args(self, **overrides):
+        return base_args(
+            repository="noxyzone/gitzone",
+            event="pull_request",
+            branch="feature/NZ-337",
+            head_repository="noxyzone/gitzone",
+            base_ref="develop",
+            **overrides,
+        )
+
+    def test_explicit_pr_record_is_flat_and_does_not_authorize_caller(self):
+        record = MODULE.build_record(**self.args())
+        self.assertEqual(record, MODULE.build_record(**base_args()))
+        arbitrary = self.args(
+            operation_id="other.operation", component_id="other-component"
+        )
+        self.assertEqual(
+            MODULE.build_record(**arbitrary)["componentID"], "other-component"
+        )
+
+    def test_pr_requires_complete_canonical_context(self):
+        for key, value in (
+            ("head_repository", "fork/gitzone"),
+            ("head_repository", None),
+            ("base_ref", "main"),
+            ("base_ref", None),
+            ("branch", ""),
+            ("event", "push"),
+            ("operation_id", ""),
+            ("component_id", ""),
+            ("attempt", 2),
+        ):
+            args = self.args()
+            args[key] = value
+            with self.subTest(key=key, value=value), self.assertRaises(MODULE.Reject):
+                MODULE.build_record(**args)
+        self.assertEqual(
+            MODULE._workflow_context("", "", repository="noxyzone/gitzone"), ("", "")
+        )
+
+    def test_actual_pr_workflow_step_rejects_empty_legacy_and_fork(self):
+        harness = WorkflowContextTest()
+        inputs = {
+            **harness.input_defaults(),
+            "development-integrity-evidence": "true",
+            "development-integrity-operation-id": "jira.NZ-337.fixture",
+            "development-integrity-component-id": "jira-development-chain",
+        }
+        context = {
+            "GITHUB_REPOSITORY": "noxyzone/gitzone",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "SUBJECT_BRANCH": "feature/NZ-337",
+            "HEAD_REPOSITORY": "noxyzone/gitzone",
+            "PR_BASE_REF": "develop",
+        }
+        result, raw = harness.execute(
+            "Create Development Integrity CI evidence", inputs, context=context
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(raw)["revision"], HEAD_SHA)
+        for changes in ({"HEAD_REPOSITORY": "fork/gitzone"}, {"PR_BASE_REF": "main"}):
+            result, raw = harness.execute(
+                "Create Development Integrity CI evidence",
+                inputs,
+                context={**context, **changes},
+            )
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertIsNone(raw)
+        inputs["development-integrity-operation-id"] = ""
+        inputs["development-integrity-component-id"] = ""
+        result, raw = harness.execute(
+            "Create Development Integrity CI evidence", inputs, context=context
+        )
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIsNone(raw)
+
+    def test_evidence_checkout_is_opt_in_pr_head_for_all_jobs(self):
+        source = WorkflowContextTest.workflow.read_text()
+        subject_checkouts = re.findall(
+            r"- name: Checkout (?:repository|subject for Development Integrity evidence)\n(.*?)(?=      - name:)",
+            source,
+            re.S,
+        )
+        self.assertEqual(len(subject_checkouts), 4)
+        for body in subject_checkouts:
+            self.assertIn(
+                "ref: ${{ inputs.development-integrity-evidence && github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}",
+                body,
+            )
+        self.assertEqual(
+            source.count('[[ "$(git rev-parse HEAD)" == "$EXPECTED_SUBJECT" ]]'), 5
+        )
+        self.assertEqual(
+            source.count(
+                "EXPECTED_SUBJECT: ${{ github.event.pull_request.head.sha || github.sha }}"
+            ),
+            5,
+        )
+        self.assertIn('--head-repository "$HEAD_REPOSITORY"', source)
+        self.assertIn('--base-ref "$PR_BASE_REF"', source)
+        self.assertIn('--branch "$SUBJECT_BRANCH"', source)
+        self.assertIn('--head-sha "$EXPECTED_SUBJECT"', source)
 
 
 class OutputTest(unittest.TestCase):
