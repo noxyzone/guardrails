@@ -43,3 +43,11 @@ DVTConsoleExectuableOutputTextColor = "DVTConsoleExectuableOutputTextColor"
 Relace = "Relace"
 reviewr = "reviewr"
 runn = "runn"
+
+# 人が保守する同名の固定oracleだけの記号列。通常語と別名fileの検査は維持する。
+[type.rcs-oracle]
+extend-glob = ["refinement-semantic-oracles-v1.json"]
+
+[type.rcs-oracle.extend-identifiers]
+ba = "ba"
+BA = "BA"

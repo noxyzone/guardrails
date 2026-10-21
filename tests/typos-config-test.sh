@@ -40,4 +40,27 @@ if typos --isolated --force-exclude --config "$CONFIG" "$TMP_ROOT/known-typo.txt
     exit 1
 fi
 
+# 同名の固定oracleの記号列だけを許可し、同じfileの通常語と別名fileは検査する。
+oracle_path=".agents/skills/nocturnalzone-evaluating-agent-models/references/refinement-semantic-oracles-v1.json"
+mkdir -p "$TMP_ROOT/$(dirname "$oracle_path")"
+lower_symbol="$(printf '%s%s' 'b' 'a')"
+upper_symbol="$(printf '%s%s' 'B' 'A')"
+printf '{"input":["W|%s","R|A|%s"]}\n' "$lower_symbol" "$upper_symbol" >"$TMP_ROOT/$oracle_path"
+if ! (cd "$TMP_ROOT" && typos --isolated --force-exclude --config "$CONFIG" "$oracle_path" >/dev/null); then
+    echo "FAIL: fixed semantic oracle symbols must be allowed for their exact filename" >&2
+    exit 1
+fi
+
+printf '{"input":["W|%s","R|A|%s"]}\n' "$lower_symbol" "$upper_symbol" >"$TMP_ROOT/other-oracle.json"
+if (cd "$TMP_ROOT" && typos --isolated --force-exclude --config "$CONFIG" other-oracle.json >/dev/null); then
+    echo "FAIL: oracle symbol allowances must not apply to other filenames" >&2
+    exit 1
+fi
+
+printf '{"description":"%s%s"}\n' 't' 'eh' >"$TMP_ROOT/$oracle_path"
+if (cd "$TMP_ROOT" && typos --isolated --force-exclude --config "$CONFIG" "$oracle_path" >/dev/null); then
+    echo "FAIL: the fixed oracle must continue to reject ordinary misspellings" >&2
+    exit 1
+fi
+
 echo "PASS"
