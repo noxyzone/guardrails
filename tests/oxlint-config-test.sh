@@ -48,4 +48,23 @@ if oxlint -c "$CONFIG" "$FIXTURE/wrapper-object.ts" >/dev/null 2>&1; then
     exit 1
 fi
 
+# SHA固定の測定済みfixtureは型の表記だけを許可し、別pathと他の規則は維持する。
+guard_path=".agents/skills/nocturnalzone-evaluating-agent-models/extensions/rcv-budget-guard.ts"
+mkdir -p "$FIXTURE/$(dirname "$guard_path")" "$FIXTURE/other"
+printf 'export const value: any = 1;\n' >"$FIXTURE/$guard_path"
+if ! (cd "$FIXTURE" && oxlint -c "$CONFIG" "$guard_path" >/dev/null); then
+    echo "FAIL: the frozen budget fixture must retain its measured type annotations" >&2
+    exit 1
+fi
+printf 'export const value: any = 1;\n' >"$FIXTURE/other/rcv-budget-guard.ts"
+if (cd "$FIXTURE" && oxlint -c "$CONFIG" other/rcv-budget-guard.ts >/dev/null 2>&1); then
+    echo "FAIL: the frozen fixture allowance must not apply to the same filename at another path" >&2
+    exit 1
+fi
+printf 'const unused = 1;\nexport const value: any = 1;\n' >"$FIXTURE/$guard_path"
+if (cd "$FIXTURE" && oxlint -c "$CONFIG" "$guard_path" >/dev/null 2>&1); then
+    echo "FAIL: the frozen budget fixture must still reject unused variables" >&2
+    exit 1
+fi
+
 echo "PASS"

@@ -11,5 +11,15 @@
     "typescript/ban-ts-comment": "error",
     "typescript/no-explicit-any": "error",
     "typescript/no-wrapper-object-types": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/.agents/skills/nocturnalzone-evaluating-agent-models/extensions/rcv-budget-guard.ts"
+      ],
+      "rules": {
+        "typescript/no-explicit-any": "off"
+      }
+    }
+  ]
 }
