@@ -1,0 +1,15 @@
+# 既定ルールを維持し、資格情報ではない照合済みの文書SHA-256だけを許可する。
+# 出典: nocturnalzone/.agents/skills/nocturnalzone-evaluating-agent-models/references/
+# refinement-{ledger,jsonschema,chess960}-api-v1.md。GUARDRAILS-ADR-0002参照。
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "照合済みの固定文書ダイジェスト3件"
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = [
+  '^620b23af1e7f31d6714a6340b3267387f2d5f110d231cbca5b25ee34ea0397e5$',
+  '^1d500c9d2419e7acca57e17fa46a7523ec0d248fb63f3c285d32653d12956753$',
+  '^ecb567dc2291f78288811461987449b3987f45bfb7fa6d63527300f09f00681f$',
+]

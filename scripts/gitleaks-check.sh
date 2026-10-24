@@ -80,7 +80,7 @@ fi
 
 status=0
 while IFS= read -r -d '' path; do
-    if ! (cd / && env -u GITLEAKS_CONFIG -u GITLEAKS_CONFIG_TOML gitleaks stdin --no-banner --redact --exit-code 1 <"$repo/$path"); then
+    if ! (cd / && env -u GITLEAKS_CONFIG -u GITLEAKS_CONFIG_TOML gitleaks stdin --no-banner --redact --exit-code 1 --config "$script_dir/../gitleaks-default.toml" <"$repo/$path"); then
         echo "gitleaks default rule finding: $path" >&2
         status=1
     fi

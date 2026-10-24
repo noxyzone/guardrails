@@ -4,6 +4,7 @@
 
 この索引はDecision Recordのmetadataから決定的に生成される。record本文を正本とし、このファイルを直接編集しない。
 
-| ID                  | Type | Status   | Date       | Title                                                                                                                | Superseded by |
-| ------------------- | ---- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
-| GUARDRAILS-ADR-0001 | ADR  | accepted | 2026-10-07 | [formatterの実行期限をGNU timeoutへ委譲する](adr/GUARDRAILS-ADR-0001-gnu-timeout-for-bounded-formatter-execution.md) | —             |
+| ID                  | Type | Status   | Date       | Title                                                                                                                                        | Superseded by |
+| ------------------- | ---- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| GUARDRAILS-ADR-0001 | ADR  | accepted | 2026-10-07 | [formatterの実行期限をGNU timeoutへ委譲する](adr/GUARDRAILS-ADR-0001-gnu-timeout-for-bounded-formatter-execution.md)                         | —             |
+| GUARDRAILS-ADR-0002 | ADR  | accepted | 2026-10-24 | [既知の文書ダイジェストだけを既定の秘密情報検査から除外する](adr/GUARDRAILS-ADR-0002-exact-known-document-digests-in-default-secret-scan.md) | —             |

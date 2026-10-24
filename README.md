@@ -80,7 +80,7 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
 - GitIdentity
   commit author/committer emailは`@users.noreply.github.com`のみ許可します。
 - gitleaks
-  symlinkと存在しないpathを除外し、共有`.gitleaks.toml`に従います。標準ルールに加え、SecretLint recommendで検出していたnpm token、低entropy GitHub PAT、汎用password代入を追加ルールで維持し、ダミー値の陽性・陰性を`tests/gitleaks-config-test.sh`で固定します。
+  symlinkと存在しないpathを除外し、標準ルールを継承する`gitleaks-default.toml`と、追加ルールの共有`.gitleaks.toml`を両方検査します。前者は照合済みの文書SHA-256値3件だけを`generic-api-key`から完全一致で除外し、未知のハッシュや別の秘密情報は除外しません。SecretLint recommendで検出していたnpm token、低entropy GitHub PAT、汎用password代入も追加ルールで維持し、ダミー値と文書ハッシュの陽性・陰性を`tests/gitleaks-config-test.sh`で固定します。
 - QualityGates
   PRの変更ファイルを判定し、対象ファイル種別がないjobはskipします。Ubuntu側でActionlint、zizmor、gitleaks、GoFormat、Treefmtの非Swift対象、TextSpacing、Typos、YAMLLint、Localization、MarkdownLint、Oxlint、OSV-Scanner、Ruff、Shebang、ShellCheck、LLMCLIStreamを実行し、macOS側でast-grep、SwiftLint、SwiftFormatを実行します。最後に`quality_gates`jobで結果を集約します。Actionlintとzizmorは`.github/workflows`直下の`.yml`と`.yaml`だけを読み、削除済みworkflowとサブディレクトリは対象にしません。OSV-Scannerは`Package.resolved`を含むlockfile変更を検査します。
 - GoFormat
@@ -131,20 +131,21 @@ CIとローカル環境は`bin/<platform>/`にGit LFSでcommitした同一バイ
 
 ## 設定ファイル
 
-| ファイル                  | 用途                        |
-| ------------------------- | --------------------------- |
-| `.markdownlint-cli2.yaml` | MarkdownLint設定            |
-| `.markdownlintignore`     | MarkdownLint共有除外設定    |
-| `.gitleaks.toml`          | gitleaks設定                |
-| `.oxlintrc.json`          | Oxlint設定                  |
-| `.swiftformat`            | SwiftFormat設定             |
-| `.swiftlint.yml`          | SwiftLint設定               |
-| `.zizmor.yml`             | zizmor設定                  |
-| `prettier.cjs`            | Treefmt内で使うPrettier設定 |
-| `sgconfig.yml`            | ast-grep設定                |
-| `treefmt.toml`            | Treefmt設定                 |
-| `typos.toml`              | Typos設定                   |
-| `.yamllint.yml`           | YAMLLint設定                |
+| ファイル                  | 用途                         |
+| ------------------------- | ---------------------------- |
+| `.markdownlint-cli2.yaml` | MarkdownLint設定             |
+| `.markdownlintignore`     | MarkdownLint共有除外設定     |
+| `gitleaks-default.toml`   | gitleaks標準ルールと限定例外 |
+| `.gitleaks.toml`          | gitleaks追加ルール設定       |
+| `.oxlintrc.json`          | Oxlint設定                   |
+| `.swiftformat`            | SwiftFormat設定              |
+| `.swiftlint.yml`          | SwiftLint設定                |
+| `.zizmor.yml`             | zizmor設定                   |
+| `prettier.cjs`            | Treefmt内で使うPrettier設定  |
+| `sgconfig.yml`            | ast-grep設定                 |
+| `treefmt.toml`            | Treefmt設定                  |
+| `typos.toml`              | Typos設定                    |
+| `.yamllint.yml`           | YAMLLint設定                 |
 
 ## 検討したが見送ったゲート
 

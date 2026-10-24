@@ -81,4 +81,33 @@ for delta_fixture in delta-npm-token.txt delta-github-pat-low-entropy.txt delta-
     fi
 done
 
+# 固定文書のSHA-256だけを許可し、未知値と前後への付加は許可しない。
+known_digests=(
+    620b23af1e7f31d6714a6340b3267387f2d5f110d231cbca5b25ee34ea0397e5
+    1d500c9d2419e7acca57e17fa46a7523ec0d248fb63f3c285d32653d12956753
+    ecb567dc2291f78288811461987449b3987f45bfb7fa6d63527300f09f00681f
+)
+printf '%s\n' document-digest.json >"$FIXTURE/digest.list"
+for digest in "${known_digests[@]}"; do
+    printf '{"api": "%s"}\n' "$digest" >"$FIXTURE/document-digest.json"
+    if ! run_list "$FIXTURE/digest.list" >"$FIXTURE/digest.log" 2>&1; then
+        echo "FAIL: known document digest must not be treated as a credential" >&2
+        exit 1
+    fi
+    for modified_digest in "0$digest" "${digest}0" "${digest%?}0"; do
+        printf '{"api": "%s"}\n' "$modified_digest" >"$FIXTURE/document-digest.json"
+        if run_list "$FIXTURE/digest.list" >"$FIXTURE/digest.log" 2>&1; then
+            echo "FAIL: digest allowlist must use exact values only" >&2
+            exit 1
+        fi
+    done
+    # 許可値と同じファイルに置いた別の秘密情報も検出する。
+    printf '{"api": "%s"}\n' "$digest" >"$FIXTURE/document-digest.json"
+    cat "$FIXTURE/positive-aws.txt" >>"$FIXTURE/document-digest.json"
+    if run_list "$FIXTURE/digest.list" >"$FIXTURE/digest.log" 2>&1; then
+        echo "FAIL: known digest must not exempt other findings in the file" >&2
+        exit 1
+    fi
+done
+
 echo "PASS"
