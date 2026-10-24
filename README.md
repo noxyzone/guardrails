@@ -120,10 +120,11 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
 
 `tests/*.sh`はguardrails自身の確定テストで、`.github/workflows/tests.yml`（push/PR起動、reusable workflowではない）がCIで実行します。fake toolによるwrapper挙動検証（timeout、引数生成、config分岐）と、実物の`treefmt`/`shfmt`/`prettier`/`typos`/`yamllint`/`ast-grep`を使った統合確認は別jobに分離しており、fixture-onlyの成功を統合確認の成功として扱いません。
 
-- `unit_tests`: `tests/*.sh`のうちfake toolや`rg`/`jq`だけで完結するものを実行します。
-- `real_tool_tests`: `ast-grep-no-derived-count-property-test.sh`、`gofmt-check-test.sh`、`gitleaks-config-test.sh`、`osv-scanner-swift-lockfile-test.sh`、`oxlint-config-test.sh`、`treefmt-real-tools-test.sh`、`typos-config-test.sh`、`yamllint-config-test.sh`、`zizmor-config-test.sh`を対象に、vendored binary（`bin/linux-x86_64/`、`.github/quality-gates/node_modules/`）とCI都度DLする`typos`/`yamllint`/`ast-grep`/`gitleaks`/`osv-scanner`/`oxlint`/`zizmor`を用意してから実行します。
+- `unit_tests`: fake toolを使うwrapper検証と、`rg`/`jq`/GNU timeoutなどの共通基盤で完結する静的・fixture検証を実行します。
+- `real_tool_tests`: `ast-grep-no-derived-count-property-test.sh`、`gofmt-check-test.sh`、`gitleaks-config-test.sh`、`osv-scanner-swift-lockfile-test.sh`、`oxlint-config-test.sh`、`treefmt-real-tools-test.sh`、`typos-check-repo-config-test.sh`、`typos-config-test.sh`、`yamllint-config-test.sh`、`zizmor-config-test.sh`を対象に、vendored binary（`bin/linux-x86_64/`、`.github/quality-gates/node_modules/`）とCI都度DLする`typos`/`yamllint`/`ast-grep`/`gitleaks`/`osv-scanner`/`oxlint`/`zizmor`を用意してから実行します。Treefmtの統合検証は本番Ubuntu jobと同じ`--without-swiftformat`を使い、未整形入力の拒否と整形済み入力の成功を両方確認します。
+- `macos_vendored_tools`: `vendored-macos-tools-runtime-test.sh`をmacOSで実行し、vendored SwiftLintとSwiftFormatの実バージョンを確認します。macOSバイナリをUbuntuで起動することなく検証を継続し、`tests`集約jobはこのjobの成功も必須にします。
 
-新しい`tests/*.sh`を追加した場合、実物ツールが必要なら`.github/workflows/tests.yml`の`real_tool_tests`側の一覧へ追加してください。追加を忘れても`unit_tests`側でcommand not foundとして失敗するため、無言でスキップされることはありません。
+新しい`tests/*.sh`を追加した場合、実物ツールが必要なら`.github/workflows/tests.yml`で対応する実ツールjobへ配線し、`unit_tests`の収集対象から明示的に除外してください。macOS専用の検証はmacOS jobへ配線します。追加を忘れても`unit_tests`側で失敗するため、無言でスキップされることはありません。
 
 ## Vendoredツール
 

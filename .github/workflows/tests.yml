@@ -32,9 +32,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          # ast-grep/gofmt/treefmt-real-tools/typos-config/yamllint-config and the
-          # gitleaks/oxlint/zizmor/osv real-tool fixtures need binaries and run
-          # in the real_tool_tests job instead. Any other tests/*.sh added later
+          # Real-tool fixtures (including both Typos tests) run in
+          # real_tool_tests; vendored macOS binaries run in macos_vendored_tools.
+          # Any other tests/*.sh added later
           # is picked up here by default; if it actually needs a real tool it
           # will fail loudly with a "command not found" error rather than being
           # silently skipped.
@@ -47,7 +47,9 @@ jobs:
               tests/osv-scanner-swift-lockfile-test.sh | \
               tests/oxlint-config-test.sh | \
               tests/treefmt-real-tools-test.sh | \
+              tests/typos-check-repo-config-test.sh | \
               tests/typos-config-test.sh | \
+              tests/vendored-macos-tools-runtime-test.sh | \
               tests/yamllint-config-test.sh | \
               tests/zizmor-config-test.sh)
               continue
@@ -210,6 +212,7 @@ jobs:
             tests/osv-scanner-swift-lockfile-test.sh \
             tests/oxlint-config-test.sh \
             tests/treefmt-real-tools-test.sh \
+            tests/typos-check-repo-config-test.sh \
             tests/typos-config-test.sh \
             tests/yamllint-config-test.sh \
             tests/zizmor-config-test.sh; do
@@ -222,6 +225,21 @@ jobs:
           done
           exit "$status"
 
+  macos_vendored_tools:
+    runs-on: macos-15
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          lfs: true
+
+      - name: Verify vendored macOS tools
+        run: ./tests/vendored-macos-tools-runtime-test.sh
+
   tests:
     if: ${{ always() }}
     runs-on: ubuntu-latest
@@ -229,6 +247,7 @@ jobs:
     needs:
       - unit_tests
       - real_tool_tests
+      - macos_vendored_tools
     permissions:
       contents: read
     steps:
@@ -236,7 +255,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          for result in "${{ needs.unit_tests.result }}" "${{ needs.real_tool_tests.result }}"; do
+          for result in "${{ needs.unit_tests.result }}" "${{ needs.real_tool_tests.result }}" "${{ needs.macos_vendored_tools.result }}"; do
             if [[ "$result" != "success" ]]; then
               echo "::error::test job did not succeed: $result"
               exit 1

@@ -39,7 +39,7 @@ for shfmt_repo in \
     "$SHFMT_FIXTURES/local-conflict" \
     "$SHFMT_FIXTURES/home-conflict/repo"; do
     printf '%s\n' 'if true; then' 'echo hi' 'fi' >"$shfmt_repo/fixture.sh"
-    HOME="$SHFMT_FIXTURES/home-conflict" "$SCRIPT" --write --repo "$shfmt_repo" -- fixture.sh >/dev/null
+    HOME="$SHFMT_FIXTURES/home-conflict" "$SCRIPT" --write --without-swiftformat --repo "$shfmt_repo" -- fixture.sh >/dev/null
     if [[ "$(<"$shfmt_repo/fixture.sh")" != $'if true; then\n    echo hi\nfi' ]]; then
         echo "FAIL: shfmt output changed because of EditorConfig discovery: $shfmt_repo" >&2
         exit 1
@@ -50,7 +50,7 @@ done
 JSON_REPO="$FIXTURE/json-repo"
 mkdir -p "$JSON_REPO"
 printf '%s\n' '{"items":["one","two"],"empty":[]}' >"$JSON_REPO/fixture.json"
-"$SCRIPT" --write --repo "$JSON_REPO" -- fixture.json >/dev/null
+"$SCRIPT" --write --without-swiftformat --repo "$JSON_REPO" -- fixture.json >/dev/null
 expected_json=$'{\n  "items": [\n    "one",\n    "two"\n  ],\n  "empty": []\n}'
 if [[ "$(<"$JSON_REPO/fixture.json")" != "$expected_json" ]]; then
     echo "FAIL: JSONの非空配列が要素ごとの複数行形式ではない" >&2
@@ -72,7 +72,7 @@ printf '{"fixture":true}\n' >"$CHECK_ONLY_REPO/unformatted.json"
 git -C "$CHECK_ONLY_REPO" add unformatted.json
 git -C "$CHECK_ONLY_REPO" commit -qm initial
 check_only_before="$(cat "$CHECK_ONLY_REPO/unformatted.json")"
-if "$SCRIPT" --check --repo "$CHECK_ONLY_REPO" >/dev/null 2>&1; then
+if "$SCRIPT" --check --without-swiftformat --repo "$CHECK_ONLY_REPO" >/dev/null 2>&1; then
     echo "FAIL: treefmt-check.sh accepted unformatted input in check mode" >&2
     exit 1
 fi
@@ -81,5 +81,10 @@ if [[ "$(cat "$CHECK_ONLY_REPO/unformatted.json")" != "$check_only_before" ]] ||
     echo "FAIL: treefmt-check.sh modified a tracked file in check mode" >&2
     exit 1
 fi
+
+# 同じfixtureを正規に整形した後は成功することも確認し、ツール不在や設定エラーに
+# よる失敗をcheck-onlyの否定対照の成功と取り違えない。
+"$SCRIPT" --write --without-swiftformat --repo "$CHECK_ONLY_REPO" >/dev/null
+"$SCRIPT" --check --without-swiftformat --repo "$CHECK_ONLY_REPO" >/dev/null
 
 echo "PASS"

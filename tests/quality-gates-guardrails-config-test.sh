@@ -196,10 +196,6 @@ grep -Fxq "$expected_manifest_row" "$VENDORED_TOOLS_MANIFEST" || {
     echo "FAIL: vendored tools manifest must pin SwiftLint provenance and integrity" >&2
     exit 1
 }
-[[ "$("$ROOT_DIR/bin/macos-arm64/swiftlint" version)" == "0.63.2" ]] || {
-    echo "FAIL: vendored SwiftLint version mismatch" >&2
-    exit 1
-}
 [[ "$(shasum -a 256 "$ROOT_DIR/bin/macos-arm64/swiftlint" | awk '{print $1}')" == "2991cdee904be388d6d15e9cea560c3d6b0d8c009462b8261ed608709b7712c7" ]] || {
     echo "FAIL: vendored SwiftLint binary checksum mismatch" >&2
     exit 1
