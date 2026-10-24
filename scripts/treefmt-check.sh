@@ -99,18 +99,26 @@ case "$treefmt_timeout_seconds" in
     ;;
 esac
 
-# GNU coreutilsのtimeoutへ実行期限を委譲する。PATH上のtimeout（Ubuntu CI、Nix環境）、
-# 次いでHomebrew coreutilsのgtimeoutを解決し、GNU版でなければ導入要件を示して失敗する。
+# GNU coreutilsのtimeoutへ実行期限を委譲する。非GNU版やversion取得失敗は飛ばし、
+# Ubuntuのgnutimeout、Homebrewのgtimeoutも順に検査する。生のversion出力は表示しない。
 treefmt_timeout_bin=""
-if command -v timeout >/dev/null 2>&1; then
-    treefmt_timeout_bin="$(command -v timeout)"
-elif command -v gtimeout >/dev/null 2>&1; then
-    treefmt_timeout_bin="$(command -v gtimeout)"
-else
-    fail "GNU coreutils timeout is required; on macOS install coreutils via Homebrew"
-fi
-if ! "$treefmt_timeout_bin" --version 2>/dev/null | grep -q 'GNU coreutils'; then
-    fail "GNU coreutils timeout is required, but $treefmt_timeout_bin is not GNU coreutils"
+for timeout_candidate in timeout gnutimeout gtimeout; do
+    if ! timeout_candidate_path="$(command -v "$timeout_candidate")"; then
+        continue
+    fi
+    if ! timeout_version="$("$timeout_candidate_path" --version 2>/dev/null)"; then
+        continue
+    fi
+    timeout_banner="${timeout_version%%$'\n'*}"
+    case "$timeout_banner" in
+    'timeout (GNU coreutils) '[0-9]* | 'gnutimeout (GNU coreutils) '[0-9]* | 'gtimeout (GNU coreutils) '[0-9]*)
+        treefmt_timeout_bin="$timeout_candidate_path"
+        break
+        ;;
+    esac
+done
+if [[ -z "$treefmt_timeout_bin" ]]; then
+    fail "GNU coreutils timeout is required; on Ubuntu install gnu-coreutils; on macOS install coreutils via Homebrew"
 fi
 
 run_with_timeout() {

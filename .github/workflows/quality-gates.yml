@@ -200,7 +200,8 @@ jobs:
           set -euo pipefail
 
           sudo apt-get update
-          sudo apt-get install -y jq shellcheck
+          sudo apt-get install -y gnu-coreutils jq shellcheck
+          gnutimeout --version
 
       - name: Set up Go
         if: ${{ needs.detect_changes.outputs.gofmt == 'true' }}

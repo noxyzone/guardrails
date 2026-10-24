@@ -25,7 +25,8 @@ jobs:
           set -euo pipefail
 
           sudo apt-get update
-          sudo apt-get install -y jq ripgrep shellcheck
+          sudo apt-get install -y gnu-coreutils jq ripgrep shellcheck
+          gnutimeout --version
 
       - name: Run fixture-only tests
         run: |
@@ -85,7 +86,8 @@ jobs:
           set -euo pipefail
 
           sudo apt-get update
-          sudo apt-get install -y jq ripgrep
+          sudo apt-get install -y gnu-coreutils jq ripgrep
+          gnutimeout --version
 
       - name: Set up Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00

@@ -340,6 +340,12 @@ if [[ ! -L "$FIXTURE/repo/.editorconfig" ]] ||
 fi
 rm "$FIXTURE/repo/.editorconfig"
 
+# guardrail-allow: language-delegation -- 引数無し、stdoutへ要約のみ、失敗時は終了status 1を返す。
+if ! python3 "$ROOT_DIR/tests/treefmt-timeout-selection-test.py"; then
+    echo "FAIL: treefmt timeout selection regression test failed" >&2
+    exit 1
+fi
+
 # guardrail-allow: language-delegation -- 引数無し、stdoutへ要約のみ、終了statusをそのまま伝播する。
 if ! python3 "$ROOT_DIR/tests/treefmt-timeout-fd-test.py"; then
     echo "FAIL: treefmt timeout FD regression test failed" >&2

@@ -25,6 +25,14 @@ jobs:
           persist-credentials: false
           lfs: true
 
+      - name: Install GNU timeout
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y gnu-coreutils
+          gnutimeout --version
+
       - name: Verify vendored tool versions
         run: |
           set -euo pipefail
