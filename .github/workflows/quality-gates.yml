@@ -8,21 +8,6 @@ on:
         required: false
         default: changed
         type: string
-      development-integrity-evidence:
-        description: Publish a fail-closed, first-attempt push/main CI evidence record.
-        required: false
-        default: false
-        type: boolean
-      development-integrity-operation-id:
-        description: Optional operation context; both empty values select the legacy pair.
-        required: false
-        default: ""
-        type: string
-      development-integrity-component-id:
-        description: Optional component context; requires an operation when non-empty.
-        required: false
-        default: ""
-        type: string
 
 jobs:
   detect_changes:
@@ -49,34 +34,11 @@ jobs:
       zizmor: ${{ steps.changed.outputs.zizmor }}
       ubuntu: ${{ steps.changed.outputs.ubuntu }}
     steps:
-      - name: Validate Development Integrity context inputs
-        env:
-          DEVELOPMENT_INTEGRITY_EVIDENCE: ${{ inputs.development-integrity-evidence }}
-          DEVELOPMENT_INTEGRITY_OPERATION_ID: ${{ inputs.development-integrity-operation-id }}
-          DEVELOPMENT_INTEGRITY_COMPONENT_ID: ${{ inputs.development-integrity-component-id }}
-        run: |
-          set -euo pipefail
-          if [[ "$DEVELOPMENT_INTEGRITY_EVIDENCE" != 'true' ]] &&
-            [[ -n "$DEVELOPMENT_INTEGRITY_OPERATION_ID" || -n "$DEVELOPMENT_INTEGRITY_COMPONENT_ID" ]]; then
-            echo '::error::Development Integrity context requires evidence mode'
-            exit 1
-          fi
-
       - name: Checkout repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          ref: ${{ inputs.development-integrity-evidence && github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}
           persist-credentials: false
           fetch-depth: 0
-
-      - name: Verify Development Integrity subject checkout
-        if: ${{ inputs.development-integrity-evidence }}
-        env:
-          EXPECTED_SUBJECT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          [[ "$EXPECTED_SUBJECT" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SUBJECT" ]]
 
       - name: Checkout guardrails
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -85,18 +47,6 @@ jobs:
           ref: main
           path: .guardrails
           persist-credentials: false
-
-      - name: Verify Development Integrity workflow revision
-        if: ${{ inputs.development-integrity-evidence }}
-        env:
-          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
-        run: |
-          set -euo pipefail
-          [[ "$(jq -er '.workflow_repository' <<<"$WORKFLOW_JOB_CONTEXT")" == 'noxyzone/guardrails' ]]
-          [[ "$(jq -er '.workflow_file_path' <<<"$WORKFLOW_JOB_CONTEXT")" == '.github/workflows/quality-gates.yml' ]]
-          expected="$(jq -er '.workflow_sha' <<<"$WORKFLOW_JOB_CONTEXT")"
-          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$expected" ]]
 
       - name: Detect changed files
         id: changed
@@ -134,18 +84,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          ref: ${{ inputs.development-integrity-evidence && github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}
           persist-credentials: false
           fetch-depth: 0
-
-      - name: Verify Development Integrity subject checkout
-        if: ${{ inputs.development-integrity-evidence }}
-        env:
-          EXPECTED_SUBJECT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          [[ "$EXPECTED_SUBJECT" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SUBJECT" ]]
 
       - name: Checkout guardrails
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -155,18 +95,6 @@ jobs:
           path: .guardrails
           persist-credentials: false
           lfs: true
-
-      - name: Verify Development Integrity workflow revision
-        if: ${{ inputs.development-integrity-evidence }}
-        env:
-          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
-        run: |
-          set -euo pipefail
-          [[ "$(jq -er '.workflow_repository' <<<"$WORKFLOW_JOB_CONTEXT")" == 'noxyzone/guardrails' ]]
-          [[ "$(jq -er '.workflow_file_path' <<<"$WORKFLOW_JOB_CONTEXT")" == '.github/workflows/quality-gates.yml' ]]
-          expected="$(jq -er '.workflow_sha' <<<"$WORKFLOW_JOB_CONTEXT")"
-          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$expected" ]]
 
       - name: Prepare changed-file targets
         env:
@@ -511,18 +439,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          ref: ${{ inputs.development-integrity-evidence && github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}
           persist-credentials: false
           fetch-depth: 0
-
-      - name: Verify Development Integrity subject checkout
-        if: ${{ inputs.development-integrity-evidence }}
-        env:
-          EXPECTED_SUBJECT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          [[ "$EXPECTED_SUBJECT" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SUBJECT" ]]
 
       - name: Checkout guardrails
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -532,18 +450,6 @@ jobs:
           path: .guardrails
           persist-credentials: false
           lfs: true
-
-      - name: Verify Development Integrity workflow revision
-        if: ${{ inputs.development-integrity-evidence }}
-        env:
-          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
-        run: |
-          set -euo pipefail
-          [[ "$(jq -er '.workflow_repository' <<<"$WORKFLOW_JOB_CONTEXT")" == 'noxyzone/guardrails' ]]
-          [[ "$(jq -er '.workflow_file_path' <<<"$WORKFLOW_JOB_CONTEXT")" == '.github/workflows/quality-gates.yml' ]]
-          expected="$(jq -er '.workflow_sha' <<<"$WORKFLOW_JOB_CONTEXT")"
-          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$expected" ]]
 
       - name: Prepare changed-file targets
         env:
@@ -670,95 +576,3 @@ jobs:
             esac
           done
           echo "Quality gates completed"
-
-      - name: Checkout subject for Development Integrity evidence
-        if: ${{ inputs.development-integrity-evidence }}
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          ref: ${{ inputs.development-integrity-evidence && github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}
-          persist-credentials: false
-          fetch-depth: 0
-
-      - name: Verify Development Integrity subject checkout
-        if: ${{ inputs.development-integrity-evidence }}
-        env:
-          EXPECTED_SUBJECT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          [[ "$EXPECTED_SUBJECT" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SUBJECT" ]]
-
-      - name: Checkout guardrails for Development Integrity evidence
-        if: ${{ inputs.development-integrity-evidence }}
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          repository: noxyzone/guardrails
-          ref: main
-          path: .guardrails
-          persist-credentials: false
-
-      - name: Verify Development Integrity workflow revision
-        if: ${{ inputs.development-integrity-evidence }}
-        env:
-          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
-        run: |
-          set -euo pipefail
-          [[ "$(jq -er '.workflow_repository' <<<"$WORKFLOW_JOB_CONTEXT")" == 'noxyzone/guardrails' ]]
-          [[ "$(jq -er '.workflow_file_path' <<<"$WORKFLOW_JOB_CONTEXT")" == '.github/workflows/quality-gates.yml' ]]
-          expected="$(jq -er '.workflow_sha' <<<"$WORKFLOW_JOB_CONTEXT")"
-          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$expected" ]]
-
-      - name: Create Development Integrity CI evidence
-        if: ${{ inputs.development-integrity-evidence }}
-        env:
-          DEVELOPMENT_INTEGRITY_EVIDENCE: ${{ inputs.development-integrity-evidence }}
-          DEVELOPMENT_INTEGRITY_OPERATION_ID: ${{ inputs.development-integrity-operation-id }}
-          DEVELOPMENT_INTEGRITY_COMPONENT_ID: ${{ inputs.development-integrity-component-id }}
-          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
-          EXPECTED_SUBJECT: ${{ github.event.pull_request.head.sha || github.sha }}
-          SUBJECT_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
-          DETECT_RESULT: ${{ needs.detect_changes.result }}
-          UBUNTU_RESULT: ${{ needs.ubuntu_guardrails.result }}
-          MACOS_RESULT: ${{ needs.macos_guardrails.result }}
-          UBUNTU_APPLICABLE: ${{ needs.detect_changes.outputs.ubuntu }}
-          MACOS_APPLICABLE: ${{ (needs.detect_changes.outputs.swift == 'true' || needs.detect_changes.outputs.ast_grep == 'true') && 'true' || 'false' }}
-        run: |
-          set -euo pipefail
-          [[ "$DEVELOPMENT_INTEGRITY_EVIDENCE" == 'true' ]]
-          expected="$(jq -er '.workflow_sha' <<<"$WORKFLOW_JOB_CONTEXT")"
-          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(cd .guardrails && git rev-parse HEAD)" == "$expected" ]]
-          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SUBJECT" ]]
-          [[ "$(git rev-parse --show-toplevel)" == "$GITHUB_WORKSPACE" ]]
-          mkdir -p "$RUNNER_TEMP/development-integrity"
-          python3 .guardrails/scripts/development-integrity-ci-evidence.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --operation-id "$DEVELOPMENT_INTEGRITY_OPERATION_ID" \
-            --component-id "$DEVELOPMENT_INTEGRITY_COMPONENT_ID" \
-            --event "$GITHUB_EVENT_NAME" \
-            --branch "$SUBJECT_BRANCH" \
-            --head-repository "$HEAD_REPOSITORY" \
-            --base-ref "$PR_BASE_REF" \
-            --run-id "$GITHUB_RUN_ID" \
-            --attempt "$GITHUB_RUN_ATTEMPT" \
-            --head-sha "$EXPECTED_SUBJECT" \
-            --checkout-tree "$(git rev-parse 'HEAD^{tree}')" \
-            --guardrails-sha "$(cd .guardrails && git rev-parse HEAD)" \
-            --detect-result "$DETECT_RESULT" \
-            --ubuntu-result "$UBUNTU_RESULT" \
-            --macos-result "$MACOS_RESULT" \
-            --ubuntu-applicable "$UBUNTU_APPLICABLE" \
-            --macos-applicable "$MACOS_APPLICABLE" \
-            --output "$RUNNER_TEMP/development-integrity/ci-evidence.json"
-
-      - name: Publish Development Integrity CI evidence
-        if: ${{ inputs.development-integrity-evidence }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: quality-gates
-          path: ${{ runner.temp }}/development-integrity/ci-evidence.json
-          if-no-files-found: error
-          retention-days: 30

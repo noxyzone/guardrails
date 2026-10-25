@@ -13,25 +13,14 @@ VENDORED_TOOLS_MANIFEST="$ROOT_DIR/config/vendored-tools.tsv"
 for required in \
     'scope:' \
     'default: changed' \
-    'development-integrity-evidence:' \
-    'development-integrity-operation-id:' \
-    'development-integrity-component-id:' \
-    'default: false' \
-    'name: Validate Development Integrity context inputs' \
-    'DEVELOPMENT_INTEGRITY_OPERATION_ID: \$\{\{ inputs\.development-integrity-operation-id \}\}' \
-    'DEVELOPMENT_INTEGRITY_COMPONENT_ID: \$\{\{ inputs\.development-integrity-component-id \}\}' \
-    '--operation-id "\$DEVELOPMENT_INTEGRITY_OPERATION_ID"' \
-    '--component-id "\$DEVELOPMENT_INTEGRITY_COMPONENT_ID"' \
-    'WORKFLOW_JOB_CONTEXT: \$\{\{ toJSON\(job\) \}\}' \
-    'jq -er '\''.workflow_repository'\'' ' \
-    'jq -er '\''.workflow_file_path'\'' ' \
-    'jq -er '\''.workflow_sha'\'' ' \
-    '\[\[ "\$\(cd \.guardrails && git rev-parse HEAD\)" == "\$expected" \]\]' \
-    'DEVELOPMENT_INTEGRITY_EVIDENCE: \$\{\{ inputs\.development-integrity-evidence \}\}' \
-    'development-integrity-ci-evidence\.py' \
-    'uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' \
-    'name: quality-gates' \
-    'if-no-files-found: error' \
+    '^  detect_changes:' \
+    '^  ubuntu_guardrails:' \
+    '^  macos_guardrails:' \
+    '^  quality_gates:' \
+    'name: Confirm guardrail jobs' \
+    'needs\.detect_changes\.result' \
+    'needs\.ubuntu_guardrails\.result' \
+    'needs\.macos_guardrails\.result' \
     'quality-gate-scope-args\.sh' \
     'SCOPE_INPUT: \$\{\{ inputs\.scope \}\}' \
     '--scope "\$SCOPE_INPUT"' \
@@ -82,20 +71,12 @@ for required in \
     fi
 done
 
-for forbidden in 'guardrails-ref:' 'inputs\.guardrails-ref' 'development-integrity-guardrails-revision:' 'inputs\.development-integrity-guardrails-revision'; do
+for forbidden in 'guardrails-ref:' 'inputs\.guardrails-ref' 'development-integrity' 'DEVELOPMENT_INTEGRITY' 'Development Integrity'; do
     if rg -q -- "$forbidden" "$WORKFLOW"; then
         echo "FAIL: QualityGates must not allow callers to override guardrails/main: $forbidden" >&2
         exit 1
     fi
 done
-
-# All jobs that consume guardrails must reject an execution revision mismatch
-# before the opt-in evidence can be published.
-revision_check_count="$(rg -c '^      - name: Verify Development Integrity workflow revision$' "$WORKFLOW" || true)"
-[[ "$revision_check_count" == 4 ]] || {
-    echo 'FAIL: every QualityGates job must verify its executed workflow revision' >&2
-    exit 1
-}
 
 for go_workflow in "$WORKFLOW" "$TESTS_WORKFLOW"; do
     for required in \
@@ -311,7 +292,7 @@ if rg -q 'git diff --name-only --diff-filter=ACMRT .* \|\| true' "$WORKFLOW"; th
     exit 1
 fi
 
-if [[ "$(rg -c '^          fetch-depth: 0$' "$WORKFLOW")" != "4" ]]; then
+if [[ "$(rg -c '^          fetch-depth: 0$' "$WORKFLOW")" != "3" ]]; then
     echo "FAIL: every change-scoped job checkout must define fetch-depth: 0" >&2
     exit 1
 fi
