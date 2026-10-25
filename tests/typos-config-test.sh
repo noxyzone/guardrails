@@ -63,4 +63,27 @@ if (cd "$TMP_ROOT" && typos --isolated --force-exclude --config "$CONFIG" "$orac
     exit 1
 fi
 
+# 公開Sumのregex内で分割された識別子は、同名configにだけ限定する。
+checksum_literal="$(rg '^regexes = .*Mv2mzuHuZuY2' "$ROOT_DIR/gitleaks-default.toml")"
+printf '%s\n' "$checksum_literal" >"$TMP_ROOT/gitleaks-default.toml"
+if ! typos --isolated --force-exclude --config "$CONFIG" "$TMP_ROOT/gitleaks-default.toml" >/dev/null; then
+    echo "FAIL: sourced checksum literal must be allowed in its exact config filename" >&2
+    exit 1
+fi
+printf '%s\n' "$checksum_literal" >"$TMP_ROOT/other-config.toml"
+if typos --isolated --force-exclude --config "$CONFIG" "$TMP_ROOT/other-config.toml" >/dev/null; then
+    echo "FAIL: checksum identifier allowance must not apply to other filenames" >&2
+    exit 1
+fi
+printf '%s%s\n' 'N' 'd' >"$TMP_ROOT/gitleaks-default.toml"
+if typos --isolated --force-exclude --config "$CONFIG" "$TMP_ROOT/gitleaks-default.toml" >/dev/null; then
+    echo "FAIL: checksum identifier allowance must not allow ordinary misspellings" >&2
+    exit 1
+fi
+printf '%s\n# %s%s\n' "$checksum_literal" 't' 'eh' >"$TMP_ROOT/gitleaks-default.toml"
+if typos --isolated --force-exclude --config "$CONFIG" "$TMP_ROOT/gitleaks-default.toml" >/dev/null; then
+    echo "FAIL: checksum config must still reject a different typo in the same file" >&2
+    exit 1
+fi
+
 echo "PASS"

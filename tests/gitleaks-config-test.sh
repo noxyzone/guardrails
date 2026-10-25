@@ -110,4 +110,29 @@ for digest in "${known_digests[@]}"; do
     fi
 done
 
+# 公式moduleの公開Sum1件だけを許可し、近似値や同じfileの秘密は拒否する。
+# 出典: golang.org/x/oauth2@v0.35.0の正規module metadataとcacheの一致。
+known_module_sum='h1:Mv2mzuHuZuY2+bkyWXIHMfhNdJAdwW3FuWeCPYN5GVQ='
+module_digest="${known_module_sum#h1:}"
+printf '%s\n' go.sum >"$FIXTURE/module-sum.list"
+printf 'golang.org/x/oauth2 v0.35.0 %s\n' "$known_module_sum" >"$FIXTURE/go.sum"
+if ! run_list "$FIXTURE/module-sum.list" >"$FIXTURE/module-sum.log" 2>&1; then
+    echo "FAIL: verified public module Sum must not be treated as a credential" >&2
+    exit 1
+fi
+# padding後の文字は既定ルールでも非検出となるため、paddingを末尾に保って付加する。
+for modified_sum in "h1:0$module_digest" "h1:${module_digest%=}0=" "h1:N${module_digest:1}"; do
+    printf 'golang.org/x/oauth2 v0.35.0 %s\n' "$modified_sum" >"$FIXTURE/go.sum"
+    if run_list "$FIXTURE/module-sum.list" >"$FIXTURE/module-sum.log" 2>&1; then
+        echo "FAIL: module Sum allowlist must reject prefixes, suffixes and near values" >&2
+        exit 1
+    fi
+done
+printf 'golang.org/x/oauth2 v0.35.0 %s\n' "$known_module_sum" >"$FIXTURE/go.sum"
+cat "$FIXTURE/positive-aws.txt" >>"$FIXTURE/go.sum"
+if run_list "$FIXTURE/module-sum.list" >"$FIXTURE/module-sum.log" 2>&1; then
+    echo "FAIL: public module Sum must not exempt another credential in the same file" >&2
+    exit 1
+fi
+
 echo "PASS"

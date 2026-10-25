@@ -1,4 +1,4 @@
-# 既定ルールを維持し、資格情報ではない照合済みの文書SHA-256だけを許可する。
+# 既定ルールを維持し、資格情報ではない出典照合済みの公開整合性値だけを許可する。
 # 出典: nocturnalzone/.agents/skills/nocturnalzone-evaluating-agent-models/references/
 # refinement-{ledger,jsonschema,chess960}-api-v1.md。GUARDRAILS-ADR-0002参照。
 [extend]
@@ -13,3 +13,13 @@ regexes = [
   '^1d500c9d2419e7acca57e17fa46a7523ec0d248fb63f3c285d32653d12956753$',
   '^ecb567dc2291f78288811461987449b3987f45bfb7fa6d63527300f09f00681f$',
 ]
+
+# 出典: golang.org/x/oauth2@v0.35.0の公開Sum。正規module metadataとcacheを照合済み。
+# go mod download -jsonのSumはh1:Mv2mzuHuZuY2+bkyWXIHMfhNdJAdwW3FuWeCPYN5GVQ=。
+# Origin: https://go.googlesource.com/oauth2、refs/tags/v0.35.0。
+# generic-api-keyのsecretはh1:を含まないdigestなので、その値だけを完全一致にする。
+[[allowlists]]
+description = "照合済みの固定Go module Sum1件"
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = ['^Mv2mzuHuZuY2\+bkyWXIHMfhNdJAdwW3FuWeCPYN5GVQ=$']

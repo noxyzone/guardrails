@@ -51,3 +51,11 @@ extend-glob = ["refinement-semantic-oracles-v1.json"]
 [type.rcs-oracle.extend-identifiers]
 ba = "ba"
 BA = "BA"
+
+# golang.org/x/oauth2@v0.35.0の照合済みSumに由来するregexの表記だけを扱う。
+# typos --identifiersで確認した分割後の識別子1件に限定し、通常語は許可しない。
+[type.gitleaks-public-sum]
+extend-glob = ["gitleaks-default.toml"]
+
+[type.gitleaks-public-sum.extend-identifiers]
+bkyWXIHMfhNdJAdwW3FuWeCPYN5GVQ = "bkyWXIHMfhNdJAdwW3FuWeCPYN5GVQ"
