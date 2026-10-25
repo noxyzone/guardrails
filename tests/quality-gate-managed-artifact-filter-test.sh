@@ -6,9 +6,30 @@ FILTER="$ROOT_DIR/scripts/quality-gate-path-filter.sh"
 TARGETS="$ROOT_DIR/scripts/quality-gate-targets.sh"
 WORKFLOW="$ROOT_DIR/.github/workflows/quality-gates.yml"
 
+# 廃止optionも既存の不正引数・mode排他と同じく終了code2で拒否する。
+for invalid in --manifest-paths --unknown --repo --null --treefmt-excludes; do
+    args=("$invalid")
+    case "$invalid" in
+    --null) args+=(--treefmt-excludes) ;;
+    --treefmt-excludes) args+=(--null) ;;
+    esac
+    if "$FILTER" "${args[@]}" </dev/null >/dev/null 2>&1; then
+        printf 'FAIL: invalid arguments must be rejected: %s\n' "${args[*]}" >&2
+        exit 1
+    else
+        status=$?
+        if [[ "$status" != 2 ]]; then
+            printf 'FAIL: invalid arguments must exit 2, got %s: %s\n' "$status" "${args[*]}" >&2
+            exit 1
+        fi
+    fi
+done
+
 actual="$({
     printf '%s\n' \
         '.agents/skills/.system/imagegen/SKILL.md' \
+        'bin/tool' \
+        '.github/quality-gates/node_modules/package/index.js' \
         '.agents/skills/openai-curated-build-run-debug/SKILL.md' \
         '.agents/skills/nocturnalzone-build-run-debug/SKILL.md' \
         '.agents/skills/openai-curatedness-build-run-debug/SKILL.md' \
@@ -50,6 +71,9 @@ fi
 null_actual="$({
     printf '%s\0' \
         '.agents/skills/openai-curated-build-run-debug/agents/openai.yaml' \
+        '.agents/skills/.system/imagegen/SKILL.md' \
+        'bin/tool' \
+        '.github/quality-gates/node_modules/package/index.js' \
         '.agents/skills/nocturnalzone-build-run-debug/SKILL.md' \
         '.agents/skills/openai-curatedness-build-run-debug/SKILL.md' \
         '.codex/tools/aidlc-state.ts' \
@@ -67,12 +91,14 @@ if [[ "$null_actual" != "$null_expected" ]]; then
     exit 1
 fi
 
-# An AIDLC distribution manifest excludes only its exact official paths. It must
-# not hide adjacent project-owned files merely because their names resemble
-# packaged AIDLC paths.
+# 旧manifestの内容によらず、一般の入力pathはそのまま検査対象になる。
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 git -C "$fixture" init -q
+if "$FILTER" --repo "$fixture/missing" </dev/null >/dev/null 2>&1; then
+    printf 'FAIL: nonexistent repository path must be rejected\n' >&2
+    exit 1
+fi
 cat >"$fixture/.aidlc-distribution-manifest" <<'MANIFEST'
 # aidlc-distribution-manifest-v1
 # upstream-revision: 207db2ea65352ca89717d5970bef97825114bddf
@@ -87,12 +113,43 @@ manifest_actual="$({
         'aidlc/spaces/default/memory/org.md'
 } | "$FILTER" --repo "$fixture")"
 manifest_expected="$(printf '%s\n' \
+    '.codex/config.toml' \
+    '.codex/agents/aidlc-quality-agent.toml' \
     '.codex/agents/aidlc-project-agent.toml' \
     'aidlc/spaces/default/memory/org.md')"
 if [[ "$manifest_actual" != "$manifest_expected" ]]; then
-    printf 'FAIL: manifest filtering must exclude only exact distribution paths\nexpected:\n%s\nactual:\n%s\n' "$manifest_expected" "$manifest_actual" >&2
+    printf 'FAIL: legacy manifest paths must remain ordinary inputs\nexpected:\n%s\nactual:\n%s\n' "$manifest_expected" "$manifest_actual" >&2
     exit 1
 fi
+
+# 壊れたheader・revision・pathでもmanifestを読まず、各modeの出力を変えない。
+manifest_excludes="$("$FILTER" --repo "$fixture" --treefmt-excludes)"
+default_actual="$(cd "$fixture" && printf '%s\n' "$manifest_expected" | "$FILTER")"
+if [[ "$default_actual" != "$manifest_expected" ]]; then
+    printf 'FAIL: default repository resolution must preserve ordinary paths\n' >&2
+    exit 1
+fi
+printf '%s\n' 'invalid header' '# upstream-revision: invalid' '../unsafe*' >"$fixture/.aidlc-distribution-manifest"
+for mode in lines null treefmt-excludes; do
+    case "$mode" in
+    lines)
+        malformed_actual="$(printf '%s\n' "$manifest_expected" | "$FILTER" --repo "$fixture")"
+        malformed_expected="$manifest_expected"
+        ;;
+    null)
+        malformed_actual="$(printf '%s\0' '.codex/config.toml' | "$FILTER" --repo "$fixture" --null | od -An -tx1 | tr -d ' \n')"
+        malformed_expected="$(printf '%s\0' '.codex/config.toml' | od -An -tx1 | tr -d ' \n')"
+        ;;
+    treefmt-excludes)
+        malformed_actual="$("$FILTER" --repo "$fixture" --treefmt-excludes)"
+        malformed_expected="$manifest_excludes"
+        ;;
+    esac
+    if [[ "$malformed_actual" != "$malformed_expected" ]]; then
+        printf 'FAIL: malformed legacy manifest affects %s output\n' "$mode" >&2
+        exit 1
+    fi
+done
 
 mkdir -p \
     "$fixture/.agents/skills/openai-curated-build-run-debug" \
@@ -145,7 +202,16 @@ fi
 treefmt_excludes="$("$FILTER" --repo /tmp --treefmt-excludes)"
 legacy_bash_treefmt_excludes="$(PATH=/usr/bin:/bin "$FILTER" --repo /tmp --treefmt-excludes)"
 if [[ "$legacy_bash_treefmt_excludes" != "$treefmt_excludes" ]]; then
-    printf 'FAIL: Treefmt excludes must support the system Bash with no distribution manifest\n' >&2
+    printf 'FAIL: Treefmt excludes must support the system Bash\n' >&2
+    exit 1
+fi
+expected_excludes="$(printf '%s\n' \
+    '.agents/skills/.system/**' \
+    '.agents/skills/openai-curated-*/**' \
+    'bin/**' \
+    '.github/quality-gates/node_modules/**')"
+if [[ "$treefmt_excludes" != "$expected_excludes" || "$manifest_excludes" != "$expected_excludes" ]]; then
+    printf 'FAIL: Treefmt excludes must contain exactly the four generic patterns\n' >&2
     exit 1
 fi
 # shellcheck disable=SC2041 # 単一要素のglob文字列リテラルであり、コマンド実行ではない

@@ -40,6 +40,35 @@ if typos --isolated --force-exclude --config "$CONFIG" "$TMP_ROOT/known-typo.txt
     exit 1
 fi
 
+# 旧配布物の名称だけでは、人が保守する通常ファイルを検査から外さない。
+ordinary_paths=(
+    ".agents/skills/aidlc-fixture/SKILL.md"
+    ".codex/agents/aidlc-fixture/notes.md"
+    ".codex/aidlc-common/notes.md"
+    ".codex/hooks/aidlc-fixture.sh"
+    ".codex/knowledge/aidlc-fixture/notes.md"
+    ".codex/scopes/aidlc-fixture/notes.md"
+    ".codex/sensors/aidlc-fixture.sh"
+    ".codex/tools/aidlc-fixture.sh"
+    ".codex/tools/data/notes.md"
+)
+for ordinary_path in "${ordinary_paths[@]}"; do
+    mkdir -p "$TMP_ROOT/$(dirname "$ordinary_path")"
+    printf '%s%s\n' 't' 'eh' >"$TMP_ROOT/$ordinary_path"
+    if (cd "$TMP_ROOT" && typos --isolated --force-exclude --config "$CONFIG" "$ordinary_path" >/dev/null); then
+        echo "FAIL: obsolete path exclusions must not hide ordinary files: $ordinary_path" >&2
+        exit 1
+    fi
+done
+
+# 保持中の履歴は引き続き除外し、データの整形や削除を要求しない。
+mkdir -p "$TMP_ROOT/aidlc/spaces/history"
+printf '%s%s\n' 't' 'eh' >"$TMP_ROOT/aidlc/spaces/history/retained.md"
+if ! (cd "$TMP_ROOT" && typos --isolated --force-exclude --config "$CONFIG" aidlc/spaces/history/retained.md >/dev/null); then
+    echo "FAIL: retained history must remain excluded" >&2
+    exit 1
+fi
+
 # 同名の固定oracleの記号列だけを許可し、同じfileの通常語と別名fileは検査する。
 oracle_path=".agents/skills/nocturnalzone-evaluating-agent-models/references/refinement-semantic-oracles-v1.json"
 mkdir -p "$TMP_ROOT/$(dirname "$oracle_path")"

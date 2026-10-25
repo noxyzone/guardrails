@@ -1,7 +1,6 @@
 [files]
 extend-exclude = [
   "**/*.app/",
-  ".agents/skills/aidlc*/",
   ".claude/cache/",
   ".claude/plans/",
   ".claude/plugins/",
@@ -12,14 +11,7 @@ extend-exclude = [
   ".config/wezterm/colors/NocturnalZone.toml",
   ".config/zed/themes/nocturnalzone.json",
   ".codex/cache/",
-  ".codex/agents/aidlc-*/",
-  ".codex/aidlc-common/",
-  ".codex/hooks/aidlc-*",
-  ".codex/knowledge/aidlc-*/",
-  ".codex/scopes/aidlc-*/",
-  ".codex/sensors/aidlc-*",
-  ".codex/tools/aidlc-*",
-  ".codex/tools/data/",
+  # 保持中の旧履歴は通常コードの検査対象へ戻さない。
   "aidlc/spaces/",
   "artifacts/",
   "contrib/",

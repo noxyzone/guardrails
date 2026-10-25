@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    printf 'usage: quality-gate-path-filter.sh [--repo PATH] [--null | --treefmt-excludes | --manifest-paths]\n' >&2
+    printf 'usage: quality-gate-path-filter.sh [--repo PATH] [--null | --treefmt-excludes]\n' >&2
     exit 2
 }
 
@@ -26,11 +26,6 @@ while (($# > 0)); do
         mode="treefmt-excludes"
         shift
         ;;
-    --manifest-paths)
-        [[ "$mode" == "lines" ]] || usage
-        mode="manifest-paths"
-        shift
-        ;;
     *) usage ;;
     esac
 done
@@ -40,63 +35,7 @@ if [[ -z "$repo_root" ]]; then
 fi
 [[ -z "$repo_root" ]] || repo_root="$(cd "$repo_root" && pwd -P)"
 
-distribution_manifest="$repo_root/.aidlc-distribution-manifest"
-distribution_paths=()
-
-is_aidlc_distribution_path() {
-    case "$1" in
-    .agents/skills/aidlc* | \
-        .codex/aidlc-common | .codex/aidlc-common/* | \
-        .codex/config.toml | \
-        .codex/hooks.json | \
-        .codex/rules/default.rules | \
-        .codex/trust-seed.toml | \
-        .codex/sensors/aidlc-* | \
-        .codex/tools/aidlc.ts | .codex/tools/aidlc-* | \
-        .codex/tools/data | .codex/tools/data/* | \
-        .codex/agents/aidlc-* | \
-        .codex/knowledge/aidlc-* | \
-        .codex/hooks/aidlc-* | \
-        .codex/scopes/aidlc-*)
-        return 0
-        ;;
-    esac
-    return 1
-}
-
-load_distribution_manifest() {
-    local path
-    local revision
-    [[ -f "$distribution_manifest" ]] || return 0
-    IFS= read -r path <"$distribution_manifest" ||
-        fail "AIDLC distribution manifest is empty: $distribution_manifest"
-    [[ "$path" == "# aidlc-distribution-manifest-v1" ]] ||
-        fail "AIDLC distribution manifest has an unsupported header: $distribution_manifest"
-    IFS= read -r revision < <(/usr/bin/sed -n '2p' "$distribution_manifest") || true
-    [[ "$revision" =~ ^#\ upstream-revision:\ [0-9a-f]{40}$ ]] ||
-        fail "AIDLC distribution manifest has an invalid upstream revision: $distribution_manifest"
-    while IFS= read -r path || [[ -n "$path" ]]; do
-        [[ -n "$path" && "$path" != \#* ]] || continue
-        case "$path" in
-        /* | *..* | *'['* | *'*'* | *'?'*)
-            fail "AIDLC distribution manifest has an unsafe path: $path"
-            ;;
-        esac
-        is_aidlc_distribution_path "$path" ||
-            fail "AIDLC distribution manifest has a non-distribution path: $path"
-        distribution_paths+=("$path")
-    done <"$distribution_manifest"
-}
-
-fail() {
-    printf 'error: %s\n' "$*" >&2
-    exit 2
-}
-
-load_distribution_manifest
-
 is_managed_artifact_path() {
-    local distribution_path
     case "$1" in
     .agents/skills/.system | .agents/skills/.system/* | \
         .agents/skills/openai-curated-* | \
@@ -105,9 +44,6 @@ is_managed_artifact_path() {
         return 0
         ;;
     esac
-    for distribution_path in "${distribution_paths[@]+"${distribution_paths[@]}"}"; do
-        [[ "$1" == "$distribution_path" ]] && return 0
-    done
     return 1
 }
 
@@ -124,14 +60,6 @@ treefmt-excludes)
     printf '%s\n' '.agents/skills/openai-curated-*/**'
     printf '%s\n' 'bin/**'
     printf '%s\n' '.github/quality-gates/node_modules/**'
-    if ((${#distribution_paths[@]} > 0)); then
-        printf '%s\n' "${distribution_paths[@]}"
-    fi
-    ;;
-manifest-paths)
-    if ((${#distribution_paths[@]} > 0)); then
-        printf '%s\n' "${distribution_paths[@]}"
-    fi
     ;;
 lines)
     while IFS= read -r path || [[ -n "$path" ]]; do
