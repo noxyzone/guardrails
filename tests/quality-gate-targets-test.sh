@@ -396,4 +396,72 @@ if "$TARGETS" --repo "$lockfile_repo" --all --kind secretlint >/dev/null 2>"$FIX
     fail "secretlint kind must be removed"
 fi
 
+# OSVのGo入力はindex/headのmanifest。sumだけの変更でもsnapshotへ含める。
+osv_go_repo="$FIXTURE/osv-go-repo"
+mkdir -p "$osv_go_repo/space module" "$osv_go_repo/second"
+git -C "$osv_go_repo" init -q
+git -C "$osv_go_repo" config user.email fixture@example.invalid
+git -C "$osv_go_repo" config user.name Fixture
+for module_dir in '' 'space module/' 'second/'; do
+    printf 'module example.invalid/fixture\n\ngo 1.25\n' >"$osv_go_repo/${module_dir}go.mod"
+    printf 'baseline\n' >"$osv_go_repo/${module_dir}go.sum"
+done
+git -C "$osv_go_repo" add -- .
+osv_go_base_tree="$(git -C "$osv_go_repo" write-tree)"
+osv_go_base="$(printf 'base\n' | git -C "$osv_go_repo" commit-tree "$osv_go_base_tree")"
+git -C "$osv_go_repo" update-ref HEAD "$osv_go_base"
+printf 'changed sum\n' >"$osv_go_repo/space module/go.sum"
+printf 'unstaged manifest must not enter snapshot\n' >"$osv_go_repo/space module/go.mod"
+git -C "$osv_go_repo" add -- 'space module/go.sum'
+osv_go_output="$FIXTURE/osv-go.bin"
+"$TARGETS" --repo "$osv_go_repo" --staged --kind osv >"$osv_go_output"
+assert_null_paths "$osv_go_output" 'space module/go.mod'
+# 本番と同じcheckout-indexで、WTでなく未変更index版の実bytesを展開する。
+osv_snapshot="$FIXTURE/osv-snapshot"
+mkdir -p "$osv_snapshot"
+git -C "$osv_go_repo" checkout-index -z --stdin --prefix="$osv_snapshot/" <"$osv_go_output"
+git -C "$osv_go_repo" show ':space module/go.mod' >"$FIXTURE/index-go.mod"
+cmp -s "$FIXTURE/index-go.mod" "$osv_snapshot/space module/go.mod" || fail 'snapshot must use index manifest'
+if cmp -s "$osv_go_repo/space module/go.mod" "$osv_snapshot/space module/go.mod"; then
+    fail 'snapshot must not use unstaged manifest'
+fi
+osv_go_sum_tree="$(git -C "$osv_go_repo" write-tree)"
+osv_go_sum_head="$(printf 'sum\n' | git -C "$osv_go_repo" commit-tree "$osv_go_sum_tree" -p "$osv_go_base")"
+# headだけに存在するmanifestを使い、WT/indexからの補完を許さない。
+git -C "$osv_go_repo" update-index --force-remove 'space module/go.mod'
+"$TARGETS" --repo "$osv_go_repo" --changed --base "$osv_go_base" --head "$osv_go_sum_head" --kind osv >"$osv_go_output"
+assert_null_paths "$osv_go_output" 'space module/go.mod'
+osv_go_missing_tree="$(git -C "$osv_go_repo" write-tree)"
+osv_go_missing_head="$(printf 'missing\n' | git -C "$osv_go_repo" commit-tree "$osv_go_missing_tree" -p "$osv_go_base")"
+assert_osv_go_rejected() {
+    local status=0
+    "$TARGETS" --repo "$osv_go_repo" "$@" --kind osv >"$osv_go_output" 2>"$FIXTURE/osv-go.err" || status=$?
+    [[ "$status" == 2 ]] || fail 'missing canonical Go manifest must exit 2'
+}
+assert_osv_go_rejected --staged
+assert_osv_go_rejected --all
+assert_osv_go_rejected --changed --base "$osv_go_base" --head "$osv_go_missing_head"
+# WT自体にも存在しないcompanion。
+mkdir -p "$osv_go_repo/orphan"
+printf 'orphan sum\n' >"$osv_go_repo/orphan/go.sum"
+git -C "$osv_go_repo" read-tree "$osv_go_base_tree"
+git -C "$osv_go_repo" add -- orphan/go.sum
+assert_osv_go_rejected --staged
+git -C "$osv_go_repo" read-tree "$osv_go_base_tree"
+# mod単独の変更。
+printf 'module example.invalid/changed\n\ngo 1.25\n' >"$osv_go_repo/go.mod"
+git -C "$osv_go_repo" add -- go.mod
+"$TARGETS" --repo "$osv_go_repo" --staged --kind osv >"$osv_go_output"
+assert_null_paths "$osv_go_output" 'go.mod'
+# root/空白を含む複数module、mod+sumはGo入力だけ重複を抑止する。
+for module_dir in '' 'space module/' 'second/'; do
+    printf 'module example.invalid/changed\n\ngo 1.25\n' >"$osv_go_repo/${module_dir}go.mod"
+    printf 'changed sum\n' >"$osv_go_repo/${module_dir}go.sum"
+done
+git -C "$osv_go_repo" add -- go.mod go.sum 'space module/go.mod' 'space module/go.sum' second/go.mod second/go.sum
+"$TARGETS" --repo "$osv_go_repo" --staged --kind osv >"$osv_go_output"
+assert_null_paths "$osv_go_output" 'go.mod' 'space module/go.mod' 'second/go.mod'
+"$TARGETS" --repo "$osv_go_repo" --all --kind osv >"$osv_go_output"
+assert_null_paths "$osv_go_output" 'go.mod' 'space module/go.mod' 'second/go.mod'
+
 printf 'PASS: quality gate targets\n'

@@ -70,4 +70,36 @@ if "$CHECK_SCRIPT" --repo "$FIXTURE" >/dev/null 2>"$FIXTURE/usage.err"; then
     exit 1
 fi
 
+# Goは中央targetsで対応付けたmanifestだけを受け取る。
+mkdir -p "$FIXTURE/space module"
+printf 'module example.invalid/fixture\n\ngo 1.25\n' >"$FIXTURE/space module/go.mod"
+printf '%s\n' 'space module/go.mod' Package.resolved >"$FIXTURE/go-files.txt"
+FAKE_OSV_ARGS="$FIXTURE/go-args.txt" PATH="$fake_bin:$PATH" \
+    "$CHECK_SCRIPT" --files-from "$FIXTURE/go-files.txt" --repo "$FIXTURE"
+printf '%s\n' scan source --no-resolve --format table -L 'space module/go.mod' -L Package.resolved >"$FIXTURE/expected-go-args.txt"
+cmp -s "$FIXTURE/expected-go-args.txt" "$FIXTURE/go-args.txt" || {
+    echo 'FAIL: Go manifest and other lockfile arguments must be preserved' >&2
+    exit 1
+}
+assert_go_contract_rejected() {
+    local path="$1"
+    local status=0
+    printf '%s\n' "$path" >"$FIXTURE/rejected-files.txt"
+    # 新しいmarkerによりscanner未実行を実証する。
+    local marker="$FIXTURE/not-called-$2.txt"
+    FAKE_OSV_ARGS="$marker" PATH="$fake_bin:$PATH" \
+        "$CHECK_SCRIPT" --files-from "$FIXTURE/rejected-files.txt" --repo "$FIXTURE" >"$FIXTURE/rejected.out" 2>"$FIXTURE/rejected.err" || status=$?
+    if [[ "$status" != 2 || -e "$marker" ]]; then
+        echo 'FAIL: invalid Go input must exit 2 before scanner invocation' >&2
+        exit 1
+    fi
+}
+printf 'sum\n' >"$FIXTURE/space module/go.sum"
+assert_go_contract_rejected 'space module/go.sum' sum
+assert_go_contract_rejected 'missing/go.mod' missing
+mkdir -p "$FIXTURE/directory/go.mod" "$FIXTURE/link"
+assert_go_contract_rejected 'directory/go.mod' directory
+ln -s '../space module/go.mod' "$FIXTURE/link/go.mod"
+assert_go_contract_rejected 'link/go.mod' symlink
+
 echo "PASS"

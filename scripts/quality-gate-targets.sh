@@ -181,7 +181,7 @@ matches_kind() {
     markdownlint) [[ "$path" == *.md ]] ;;
     osv)
         case "${path##*/}" in
-        Cargo.lock | Gemfile.lock | Package.resolved | Pipfile.lock | Podfile.lock | bun.lock | bun.lockb | composer.lock | go.sum | gradle.lockfile | mix.lock | npm-shrinkwrap.json | package-lock.json | pdm.lock | pnpm-lock.yaml | poetry.lock | pubspec.lock | uv.lock | yarn.lock) return 0 ;;
+        Cargo.lock | Gemfile.lock | Package.resolved | Pipfile.lock | Podfile.lock | bun.lock | bun.lockb | composer.lock | go.mod | go.sum | gradle.lockfile | mix.lock | npm-shrinkwrap.json | package-lock.json | pdm.lock | pnpm-lock.yaml | poetry.lock | pubspec.lock | uv.lock | yarn.lock) return 0 ;;
         *) return 1 ;;
         esac
         ;;
@@ -233,6 +233,21 @@ if [[ "$expand_scope" == 1 ]]; then
     "$script_dir/quality-gate-path-filter.sh" --repo "$repo" --null <"$all_paths" >"$filtered_paths"
 fi
 
+# checksumの変更も同じ正本のmanifestへ対応付け、snapshot入力へ含める。
+go_manifest_exists() {
+    local path="$1"
+    local entry
+    case "$mode" in
+    changed) entry="$(git -C "$repo" ls-tree "$head" -- "$path")" ;;
+    *) entry="$(git -C "$repo" ls-files --stage -- "$path")" ;;
+    esac
+    case "$entry" in
+    '100644 '* | '100755 '*) return 0 ;;
+    *) return 1 ;;
+    esac
+}
+
+go_manifest_paths=()
 while IFS= read -r -d '' path; do
     if [[ "$path" == *$'\n'* ]]; then
         printf 'error: path contains a newline and cannot be passed safely to quality gate tools: %q\n' "$path" >&2
@@ -242,6 +257,24 @@ while IFS= read -r -d '' path; do
         continue
     fi
     if matches_kind "$path"; then
+        if [[ "$kind" == osv && ("${path##*/}" == go.sum || "${path##*/}" == go.mod) ]]; then
+            if [[ "${path##*/}" == go.sum ]]; then
+                path="${path%go.sum}go.mod"
+            fi
+            if ! go_manifest_exists "$path"; then
+                printf 'error: canonical Go manifest missing or non-regular: %s\n' "$path" >&2
+                exit 2
+            fi
+            seen_go_manifest=0
+            for go_manifest in "${go_manifest_paths[@]+"${go_manifest_paths[@]}"}"; do
+                if [[ "$go_manifest" == "$path" ]]; then
+                    seen_go_manifest=1
+                    break
+                fi
+            done
+            [[ "$seen_go_manifest" == 0 ]] || continue
+            go_manifest_paths+=("$path")
+        fi
         printf '%s\0' "$path"
     fi
 done <"$filtered_paths"

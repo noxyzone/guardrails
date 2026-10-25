@@ -96,7 +96,7 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
 - Oxlint
   共有`.oxlintrc.json`に従います。JSの構文エラーと、typescript-eslint recommended相当の主要ルール（`no-unused-vars`、`no-explicit-any`、`ban-ts-comment`、`no-wrapper-object-types`）およびcorrectnessをerrorにします。
 - OSV-Scanner
-  `Package.resolved`、`package-lock.json`、`pnpm-lock.yaml`、`yarn.lock`、`Cargo.lock`、`go.sum`などのlockfileを対象にします。認識判定は外部脆弱性DBの件数に依存しません。
+  `Package.resolved`、`package-lock.json`、`pnpm-lock.yaml`、`yarn.lock`、`Cargo.lock`などのlockfileとGoの`go.mod`を対象にします。`go.sum`の変更は同じdirectoryの正本`go.mod`へ対応付け、欠落時は失敗します。認識判定は外部脆弱性DBの件数に依存しません。
 - zizmor
   共有`.zizmor.yml`のhash-pin方針に従います。GitHub Actionsの未ピン`uses`を検出し、offlineで検査します。
 - Ruff

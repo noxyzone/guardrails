@@ -15,7 +15,7 @@ USAGE
 
 is_lockfile() {
     case "${1##*/}" in
-    Cargo.lock | Gemfile.lock | Package.resolved | Pipfile.lock | Podfile.lock | bun.lock | bun.lockb | composer.lock | go.sum | gradle.lockfile | mix.lock | npm-shrinkwrap.json | package-lock.json | pdm.lock | pnpm-lock.yaml | poetry.lock | pubspec.lock | uv.lock | yarn.lock)
+    Cargo.lock | Gemfile.lock | Package.resolved | Pipfile.lock | Podfile.lock | bun.lock | bun.lockb | composer.lock | go.mod | gradle.lockfile | mix.lock | npm-shrinkwrap.json | package-lock.json | pdm.lock | pnpm-lock.yaml | poetry.lock | pubspec.lock | uv.lock | yarn.lock)
         return 0
         ;;
     *)
@@ -75,6 +75,18 @@ trap 'rm -f "$paths_file" "$filtered_paths_file"' EXIT
 
 while IFS= read -r path || [[ -n "$path" ]]; do
     [[ -n "$path" ]] || continue
+    case "${path##*/}" in
+    go.sum)
+        echo 'error: go.sum must be mapped to go.mod by quality-gate-targets.sh' >&2
+        exit 2
+        ;;
+    go.mod)
+        if [[ ! -f "$repo/$path" || -L "$repo/$path" ]]; then
+            echo 'error: Go manifest must be a regular non-symlink file' >&2
+            exit 2
+        fi
+        ;;
+    esac
     is_lockfile "$path" || continue
     [[ -f "$repo/$path" ]] || continue
     [[ ! -L "$repo/$path" ]] || continue
