@@ -36,6 +36,29 @@ require_text "$aggregate_job" '- macos_vendored_tools' 'aggregate must depend on
 # shellcheck disable=SC2016
 require_text "$aggregate_job" '${{ needs.macos_vendored_tools.result }}' 'aggregate must require macOS success'
 
+# 各shell testは、既定のunitまたは明示されたreal/macのどれか1回だけ選ぶ。
+reference_count() {
+    printf '%s\n' "$1" | grep -oE 'tests/[[:alnum:]-]+\.sh' | awk -v path="$2" '
+        $0 == path { count++ }
+        END { print count + 0 }
+    '
+}
+
+for test_path in "$ROOT_DIR"/tests/*.sh; do
+    test_path="tests/${test_path##*/}"
+    excluded="$(reference_count "$unit_job" "$test_path")"
+    real="$(reference_count "$real_job" "$test_path")"
+    mac="$(reference_count "$mac_job" "$test_path")"
+    unit=0
+    if ((excluded == 0)); then
+        unit=1
+    fi
+    if ((excluded > 1 || unit + real + mac != 1)); then
+        echo "FAIL: test must be selected exactly once: $test_path (excluded=$excluded unit=$unit real=$real mac=$mac)" >&2
+        status=1
+    fi
+done
+
 # shellcheck disable=SC2016
 if grep -Eq '"\$ROOT_DIR/bin/macos-arm64/(swiftlint|swiftformat)" (version|--version)' "$ROOT_DIR/tests/quality-gates-guardrails-config-test.sh"; then
     echo 'FAIL: fixture-only tests must not execute macOS binaries' >&2
