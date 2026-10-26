@@ -33,7 +33,7 @@
 - push時はbeforeからheadまでの二点差分を検査し、force pushや巻き戻しで削除・復元された対象も捕捉します。
 - formatter／linter設定を変更した場合は、その設定が支配するファイル種別の全trackedファイルへ対象を拡張します。
 - 全trackedファイル検査はPR必須ゲートから分離し、定期実行、手動実行、またはrelease前backstopとして`scope: all`で呼び出します。
-- 対象抽出、AIDLC管理path除外、ファイル種別分類の正本は`scripts/quality-gate-targets.sh`です。staged、PR差分、全量の入口だけを切り替え、各toolで独自に対象を再抽出しません。
+- 対象抽出、管理対象の配布物・生成物の除外、ファイル種別分類の正本は`scripts/quality-gate-targets.sh`です。staged、PR差分、全量の入口だけを切り替え、各toolで独自に対象を再抽出しません。
 - pathはNUL区切りでtool直前まで保持します。対応toolへ安全に渡せない改行入りpathは、誤ったファイルを検査する代わりにfail closedします。
 
 PR callerは既定の`changed`scopeを使います。定期全体検査のcallerは同じ再利用workflowへ`scope: all`を渡します。すべてのcallerは`noxyzone/guardrails`の`main`を参照し、共有workflow内部のcheckoutも`main`へ固定します。固定SHA、tag、別branch、`guardrails-ref`による上書きは使いません。`scripts/guardrails-main-ref-check.sh`をローカルhookとQualityGatesの両方から実行し、この契約への違反を確定的に拒否します。このため、workflow実行中に`main`が更新されると、callerが解決したworkflow本体と内部checkoutが異なるcommitになる可能性があります。
