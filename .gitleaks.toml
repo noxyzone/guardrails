@@ -15,3 +15,12 @@ id = "nocturnalzone-password-assignment"
 description = "Password assigned directly in source or configuration"
 regex = '''(?i)(?:password|passwd|pwd)[A-Za-z0-9_.-]*[[:space:]]*[:=][[:space:]]*["']?[A-Za-z0-9_!@#$%^&*./+=-]{8,}["']?'''
 keywords = ["password", "passwd", "pwd"]
+
+# sudoersの`NOPASSWD: <command path>`タグは認証の免除指定であり、資格情報の代入ではない。
+# 除外は「一致文字列がPASSWD:で始まり、値がsudoersのコマンドpath」の形だけに限る。
+# 行単位にしないため、同じ行にある実際の代入は検出を維持する。残余リスクとして、
+# `/`で始まる値の`passwd: <path>`形は除外される（`password:`と`pwd:`は検出する）。
+[[rules.allowlists]]
+description = "sudoers NOPASSWD tag with a command path"
+regexTarget = "match"
+regexes = ['''(?i)^PASSWD[[:space:]]*:[[:space:]]*/''']

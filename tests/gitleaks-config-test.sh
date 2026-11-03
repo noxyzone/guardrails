@@ -33,12 +33,24 @@ printf 'aws_access_key_id = %s\n' 'AKIAIOSFODNN7EXAMPLE' >"$FIXTURE/negative-aws
 printf '%s\n' 'docs: set AWS_ACCESS_KEY_ID in the environment' >"$FIXTURE/negative-env-docs.txt"
 printf '%s\n' 'https://github.com/example/repo.git' >"$FIXTURE/negative-github-url.txt"
 printf '%s\n' 'test_password = "x"' >"$FIXTURE/negative-short-password.txt"
+# sudoersのNOPASSWDタグは資格情報の代入ではない。
+printf '%s\n' 'noxy ALL=(root) NOPASSWD: /run/current-system/sw/bin/darwin-rebuild switch --flake /Users/noxy/.config/nix-darwin#noxy-mac' >"$FIXTURE/negative-sudoers-nopasswd.txt"
+# 既知の残余リスク: sudoersタグ除外は`PASSWD: /path`形を対象にするため、
+# `/`で始まる値の`passwd: <path>`も除外される。`password:`と`pwd:`は検出を維持する。
+printf 'passwd: %s\n' '/Abcdefg123' >"$FIXTURE/negative-passwd-path.txt"
 
 # SecretLint recommendで検出していた代表値を、追加gitleaksルールでも維持する。
 printf 'npm_token = %s%s\n' 'npm_' 'abcdefghijklmnopqrstuvwxyz0123456789' >"$FIXTURE/delta-npm-token.txt"
 printf 'github_token = %s%s\n' 'ghp_' 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
     >"$FIXTURE/delta-github-pat-low-entropy.txt"
 printf 'password = "%s%s"\n' 'supersecret' 'value' >"$FIXTURE/delta-password-assignment.txt"
+# sudoersのNOPASSWD以外の形は検出を維持する（`_`区切り、camelCase、`passwd:`、
+# sudoers行に混在する実際の代入）。
+printf 'DB_PASSWORD=%s%s\n' 'hunter2' 'hunter2' >"$FIXTURE/positive-underscore-password.txt"
+printf 'dbPassword = "%s%s"\n' 'hunter2' 'hunter2' >"$FIXTURE/positive-camel-password.txt"
+printf 'passwd: %s%s\n' 'hunter2' 'hunter2' >"$FIXTURE/positive-yaml-passwd.txt"
+printf 'noxy ALL=(root) NOPASSWD: /bin/x # password = "%s%s"\n' 'realSecret' '123' \
+    >"$FIXTURE/positive-sudoers-with-password.txt"
 
 git -C "$FIXTURE" add -- .
 run_list() {
@@ -67,13 +79,15 @@ if run_list "$FIXTURE/positive-slack.list"; then
     exit 1
 fi
 
-printf '%s\n' negative-aws-example.txt negative-env-docs.txt negative-github-url.txt negative-short-password.txt >"$FIXTURE/negatives.list"
+printf '%s\n' negative-aws-example.txt negative-env-docs.txt negative-github-url.txt negative-short-password.txt negative-sudoers-nopasswd.txt negative-passwd-path.txt >"$FIXTURE/negatives.list"
 run_list "$FIXTURE/negatives.list" || {
     echo "FAIL: gitleaks must not flag negative dummy fixtures" >&2
     exit 1
 }
 
-for delta_fixture in delta-npm-token.txt delta-github-pat-low-entropy.txt delta-password-assignment.txt; do
+for delta_fixture in delta-npm-token.txt delta-github-pat-low-entropy.txt delta-password-assignment.txt \
+    positive-underscore-password.txt positive-camel-password.txt positive-yaml-passwd.txt \
+    positive-sudoers-with-password.txt; do
     printf '%s\n' "$delta_fixture" >"$FIXTURE/delta.list"
     if run_list "$FIXTURE/delta.list"; then
         echo "FAIL: gitleaks must preserve SecretLint detection for $delta_fixture" >&2
