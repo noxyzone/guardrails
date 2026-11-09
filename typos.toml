@@ -32,6 +32,8 @@ DVTConsoleExectuableInputTextColor = "DVTConsoleExectuableInputTextColor"
 DVTConsoleExectuableOutputTextColor = "DVTConsoleExectuableOutputTextColor"
 
 [default.extend-words]
+# CVE Numbering Authority。CVE JSONレコードのキー名(containers.cna)でもある。
+CNA = "CNA"
 Relace = "Relace"
 reviewr = "reviewr"
 runn = "runn"
