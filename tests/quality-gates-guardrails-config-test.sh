@@ -195,6 +195,14 @@ for required in \
         exit 1
     fi
 done
+# ローカルのNODE_PATH（pnpm global）に別版のpluginがあってもCIと同じ固定版を使うため、
+# QualityGates package rootでの解決を素のrequire.resolveより先に試す。
+quality_gates_resolve_line="$(rg -n -F 'return require.resolve(name, { paths: [qualityGatesPackageRoot] });' "$PRETTIER_CONFIG" | head -n 1 | cut -d: -f1)"
+plain_resolve_line="$(rg -n -F 'return require.resolve(name);' "$PRETTIER_CONFIG" | head -n 1 | cut -d: -f1)"
+if [[ -n "$plain_resolve_line" && "$plain_resolve_line" -lt "$quality_gates_resolve_line" ]]; then
+    echo "FAIL: Prettier plugins must try the QualityGates package root before plain require.resolve" >&2
+    exit 1
+fi
 
 for required_doc in \
     'commit時はstagedファイルだけをcheck-onlyで検査' \

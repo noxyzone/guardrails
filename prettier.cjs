@@ -4,12 +4,14 @@ const os = require("node:os");
 const globalActive = path.join(os.homedir(), "Library/pnpm/global-active");
 const qualityGatesPackageRoot = path.join(__dirname, ".github/quality-gates");
 
+// CIと同じ固定版を使うため、QualityGates package rootを最初に試す。
+// 素のrequire.resolveを先にすると、NODE_PATHのpnpm global（別版）が優先され判定が食い違う。
 function resolvePlugin(name, fallback) {
   try {
-    return require.resolve(name);
+    return require.resolve(name, { paths: [qualityGatesPackageRoot] });
   } catch {
     try {
-      return require.resolve(name, { paths: [qualityGatesPackageRoot] });
+      return require.resolve(name);
     } catch {
       return path.join(globalActive, fallback);
     }
