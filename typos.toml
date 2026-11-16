@@ -34,6 +34,8 @@ DVTConsoleExectuableOutputTextColor = "DVTConsoleExectuableOutputTextColor"
 [default.extend-words]
 # CVE Numbering Authority。CVE JSONレコードのキー名(containers.cna)でもある。
 CNA = "CNA"
+# pgrepのflag束`-laf`。process引数の露出を防ぐ禁止ruleとそのテストが実flagとして使う。
+laf = "laf"
 Relace = "Relace"
 reviewr = "reviewr"
 runn = "runn"
