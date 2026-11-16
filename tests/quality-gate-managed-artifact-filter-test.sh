@@ -209,9 +209,16 @@ expected_excludes="$(printf '%s\n' \
     '.agents/skills/.system/**' \
     '.agents/skills/openai-curated-*/**' \
     'bin/**' \
-    '.github/quality-gates/node_modules/**')"
+    '.github/quality-gates/node_modules/**' \
+    '.pi/agent/models-store.json')"
 if [[ "$treefmt_excludes" != "$expected_excludes" || "$manifest_excludes" != "$expected_excludes" ]]; then
-    printf 'FAIL: Treefmt excludes must contain exactly the four generic patterns\n' >&2
+    printf 'FAIL: Treefmt excludes must contain exactly the five generic patterns\n' >&2
+    exit 1
+fi
+
+# Piが書き出す生成キャッシュだけを除外し、同じ階層の手保守設定は整形対象に残す。
+if printf '%s\n' "$treefmt_excludes" | rg -Fxq -- '.pi/agent/models.json'; then
+    printf 'FAIL: hand-maintained Pi config must stay formatted\n' >&2
     exit 1
 fi
 # shellcheck disable=SC2041 # 単一要素のglob文字列リテラルであり、コマンド実行ではない
@@ -219,7 +226,8 @@ for required_exclude in \
     '.agents/skills/.system/**' \
     '.agents/skills/openai-curated-*/**' \
     'bin/**' \
-    '.github/quality-gates/node_modules/**'; do
+    '.github/quality-gates/node_modules/**' \
+    '.pi/agent/models-store.json'; do
     if ! printf '%s\n' "$treefmt_excludes" | rg -Fxq -- "$required_exclude"; then
         printf 'FAIL: Treefmt excludes do not cover managed artifact path: %s\n' "$required_exclude" >&2
         exit 1

@@ -60,6 +60,8 @@ treefmt-excludes)
     printf '%s\n' '.agents/skills/openai-curated-*/**'
     printf '%s\n' 'bin/**'
     printf '%s\n' '.github/quality-gates/node_modules/**'
+    # PiがcheckedAt等を自動更新する生成キャッシュ。手保守設定は除外しない。
+    printf '%s\n' '.pi/agent/models-store.json'
     ;;
 lines)
     while IFS= read -r path || [[ -n "$path" ]]; do
