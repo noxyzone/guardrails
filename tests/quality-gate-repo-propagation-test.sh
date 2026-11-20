@@ -22,20 +22,36 @@ chmod +x "$FIXTURE/.agents/skills/aidlc-fixture/managed.sh"
 printf '%s\n' '.agents/skills/aidlc-fixture/managed.md' >"$FIXTURE/managed-markdown-paths"
 printf '%s\n' '.agents/skills/aidlc-fixture/managed.sh' >"$FIXTURE/managed-shell-paths"
 
-if ! "$TEXT_SPACING_CHECK" --files-from "$FIXTURE/managed-markdown-paths" --repo "$FIXTURE"; then
-    echo "FAIL: text spacing must exclude manifest paths when --repo points outside the current directory" >&2
+# 旧配布manifestの除外はNZ-357で撤去済みである。manifestに記載されたpathも通常の
+# 入力として、--repoがcurrent directory外を指す場合にそのrepositoryのfileを検査する。
+if "$TEXT_SPACING_CHECK" --files-from "$FIXTURE/managed-markdown-paths" --repo "$FIXTURE" >"$FIXTURE/text-spacing.log" 2>&1; then
+    echo "FAIL: text spacing must check legacy manifest paths in the --repo outside the current directory" >&2
+    exit 1
+fi
+if ! grep -Fq '.agents/skills/aidlc-fixture/managed.md:1:' "$FIXTURE/text-spacing.log"; then
+    echo "FAIL: text spacing must report the violation from the --repo file" >&2
     exit 1
 fi
 
-if ! "$LLM_CLI_STREAM_CHECK" --files-from "$FIXTURE/managed-shell-paths" --repo "$FIXTURE"; then
-    echo "FAIL: LLM stream check must exclude manifest paths when --repo points outside the current directory" >&2
+if "$LLM_CLI_STREAM_CHECK" --files-from "$FIXTURE/managed-shell-paths" --repo "$FIXTURE" >"$FIXTURE/llm-stream.log" 2>&1; then
+    echo "FAIL: LLM stream check must check legacy manifest paths in the --repo outside the current directory" >&2
+    exit 1
+fi
+if ! grep -Fq '.agents/skills/aidlc-fixture/managed.sh' "$FIXTURE/llm-stream.log"; then
+    echo "FAIL: LLM stream check must report the violation from the --repo file" >&2
     exit 1
 fi
 
-printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' 'exit 1' >"$FIXTURE/bin/typos"
+# スタブはtyposが起動されたことと、--file-listで渡された検査対象を記録して失敗する。
+# shellcheck disable=SC2016 # fixtureとして書き出すスクリプト本文であり、ここで展開してはならない
+printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' ': >"$TYPOS_ARGS_LOG"' 'while (($#)); do' '    if [[ "$1" == --file-list ]]; then cat "$2" >>"$TYPOS_ARGS_LOG"; fi' '    shift' 'done' 'exit 1' >"$FIXTURE/bin/typos"
 chmod +x "$FIXTURE/bin/typos"
-if ! PATH="$FIXTURE/bin:$PATH" "$TYPOS_CHECK" --files-from "$FIXTURE/managed-markdown-paths" --repo "$FIXTURE"; then
-    echo "FAIL: typos check must exclude manifest paths before invoking typos" >&2
+if TYPOS_ARGS_LOG="$FIXTURE/typos-args.log" PATH="$FIXTURE/bin:$PATH" "$TYPOS_CHECK" --files-from "$FIXTURE/managed-markdown-paths" --repo "$FIXTURE" >/dev/null 2>&1; then
+    echo "FAIL: typos check must propagate the typos failure for legacy manifest paths" >&2
+    exit 1
+fi
+if [[ ! -f "$FIXTURE/typos-args.log" ]] || ! grep -Fq 'managed.md' "$FIXTURE/typos-args.log"; then
+    echo "FAIL: typos check must invoke typos with the legacy manifest path from --repo" >&2
     exit 1
 fi
 
