@@ -38,7 +38,6 @@ fi
 is_managed_artifact_path() {
     case "$1" in
     .agents/skills/.system | .agents/skills/.system/* | \
-        .agents/skills/openai-curated-* | \
         bin | bin/* | \
         .github/quality-gates/node_modules | .github/quality-gates/node_modules/*)
         return 0
@@ -57,7 +56,6 @@ null)
     ;;
 treefmt-excludes)
     printf '%s\n' '.agents/skills/.system/**'
-    printf '%s\n' '.agents/skills/openai-curated-*/**'
     printf '%s\n' 'bin/**'
     printf '%s\n' '.github/quality-gates/node_modules/**'
     # PiがcheckedAt等を自動更新する生成キャッシュ。手保守設定は除外しない。

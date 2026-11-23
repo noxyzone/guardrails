@@ -82,7 +82,7 @@ pre-commitでは共有対象抽出scriptが作成したindex snapshot上のstage
 - GoFormat
   Go 1.25.0の`gofmt`を使い、変更された`*.go`だけをcheck-onlyで検査します。`go.mod`が変更された場合は、同じリポジトリの全tracked `*.go`へ対象を拡張します。整形や再stageは行いません。
 - Treefmt
-  `treefmt.toml`に従います。除外は2層です。共有`guardrails/treefmt.toml`の`[formatter.prettier].excludes`が`artifacts/**`、`aidlc-docs/**`、`.config/karabiner/**`、`knowledge/wiki/state.json`等を対象ごとに除外し、`scripts/quality-gate-path-filter.sh`が全formatter共通の除外として`.agents/skills/.system/**`、`.agents/skills/openai-curated-*/**`、`bin/**`、`.github/quality-gates/node_modules/**`、`.pi/agent/models-store.json`を追加します。`models-store.json`はPiが`checkedAt`等を自動更新する生成キャッシュであり、同じ階層の手保守設定は整形対象に残します。GitHubActionsでは非Swift整形をUbuntuのTreefmt jobで実行し、SwiftFormatだけをmacOS jobへ分離します。repoローカルの`.swiftformat`は許可せず、共有`guardrails/.swiftformat`を使います。
+  `treefmt.toml`に従います。除外は2層です。共有`guardrails/treefmt.toml`の`[formatter.prettier].excludes`が`artifacts/**`、`aidlc-docs/**`、`.config/karabiner/**`、`knowledge/wiki/state.json`等を対象ごとに除外し、`scripts/quality-gate-path-filter.sh`が全formatter共通の除外として`.agents/skills/.system/**`、`bin/**`、`.github/quality-gates/node_modules/**`、`.pi/agent/models-store.json`を追加します。`models-store.json`はPiが`checkedAt`等を自動更新する生成キャッシュであり、同じ階層の手保守設定は整形対象に残します。GitHubActionsでは非Swift整形をUbuntuのTreefmt jobで実行し、SwiftFormatだけをmacOS jobへ分離します。repoローカルの`.swiftformat`は許可せず、共有`guardrails/.swiftformat`を使います。
 - TextSpacing
   `.claude/plugins/`、`.claude/todos/`、`.claude/cache/`、`.claude/projects/`、`.claude/plans/`、`.claude/shell-snapshots/`、`node_modules/`、`contrib/`、`artifacts/`、`pipedream/html/`を除外します。
 - Typos

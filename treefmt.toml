@@ -7,7 +7,6 @@ excludes = [
   "*.xcodeproj/xcshareddata/xcodecloud/manifest.json",
   ".aidlc-rule-details/**",
   ".agents/skills/.system/**",
-  ".agents/skills/openai-curated-*/**",
   ".config/karabiner/**",
   ".config/wezterm/colors/NocturnalZone.toml",
   ".config/zed/themes/nocturnalzone.json",

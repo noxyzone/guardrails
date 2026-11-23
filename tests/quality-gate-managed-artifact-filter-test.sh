@@ -30,7 +30,6 @@ actual="$({
         '.agents/skills/.system/imagegen/SKILL.md' \
         'bin/tool' \
         '.github/quality-gates/node_modules/package/index.js' \
-        '.agents/skills/openai-curated-build-run-debug/SKILL.md' \
         '.agents/skills/nocturnalzone-build-run-debug/SKILL.md' \
         '.agents/skills/openai-curatedness-build-run-debug/SKILL.md' \
         '.agents/skills/aidlc-build-and-test/SKILL.md' \
@@ -70,7 +69,6 @@ fi
 
 null_actual="$({
     printf '%s\0' \
-        '.agents/skills/openai-curated-build-run-debug/agents/openai.yaml' \
         '.agents/skills/.system/imagegen/SKILL.md' \
         'bin/tool' \
         '.github/quality-gates/node_modules/package/index.js' \
@@ -152,14 +150,11 @@ for mode in lines null treefmt-excludes; do
 done
 
 mkdir -p \
-    "$fixture/.agents/skills/openai-curated-build-run-debug" \
     "$fixture/.agents/skills/nocturnalzone-build-run-debug" \
     "$fixture/.agents/skills/openai-curatedness-build-run-debug"
-printf '%s\n' '公式 配布物の検査違反fixture' >"$fixture/.agents/skills/openai-curated-build-run-debug/SKILL.md"
 printf '%s\n' '自作スキルfixture' >"$fixture/.agents/skills/nocturnalzone-build-run-debug/SKILL.md"
 printf '%s\n' '類似名fixture' >"$fixture/.agents/skills/openai-curatedness-build-run-debug/SKILL.md"
 git -C "$fixture" add \
-    .agents/skills/openai-curated-build-run-debug \
     .agents/skills/nocturnalzone-build-run-debug \
     .agents/skills/openai-curatedness-build-run-debug
 
@@ -207,12 +202,11 @@ if [[ "$legacy_bash_treefmt_excludes" != "$treefmt_excludes" ]]; then
 fi
 expected_excludes="$(printf '%s\n' \
     '.agents/skills/.system/**' \
-    '.agents/skills/openai-curated-*/**' \
     'bin/**' \
     '.github/quality-gates/node_modules/**' \
     '.pi/agent/models-store.json')"
 if [[ "$treefmt_excludes" != "$expected_excludes" || "$manifest_excludes" != "$expected_excludes" ]]; then
-    printf 'FAIL: Treefmt excludes must contain exactly the five generic patterns\n' >&2
+    printf 'FAIL: Treefmt excludes must contain exactly the four generic patterns\n' >&2
     exit 1
 fi
 
@@ -224,7 +218,6 @@ fi
 # shellcheck disable=SC2041 # 単一要素のglob文字列リテラルであり、コマンド実行ではない
 for required_exclude in \
     '.agents/skills/.system/**' \
-    '.agents/skills/openai-curated-*/**' \
     'bin/**' \
     '.github/quality-gates/node_modules/**' \
     '.pi/agent/models-store.json'; do

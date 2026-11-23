@@ -29,7 +29,6 @@
 
 # OpenAI公式skill配布物
 **/.agents/skills/.system/**
-**/.agents/skills/openai-curated-*/**
 
 # Vendored formatter binaries/dependencies
 bin/**
