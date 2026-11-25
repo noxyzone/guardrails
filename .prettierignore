@@ -33,3 +33,6 @@
 # Vendored formatter binaries/dependencies
 bin/**
 .github/quality-gates/node_modules/**
+
+# Xブックマークの逐語アーカイブ（引用した投稿本文を整形しない）
+personal/x-bookmarks/**
