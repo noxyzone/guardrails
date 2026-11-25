@@ -66,6 +66,11 @@ while IFS= read -r path || [[ -n "$path" ]]; do
     [[ -n "$path" ]] || continue
     [[ -f "$repo/$path" ]] || continue
     [[ ! -L "$repo/$path" ]] || continue
+    case "$path" in
+    # Xブックマークの逐語アーカイブ。引用した公開投稿の本文に含まれるtoken風文字列は
+    # 投稿者が公開した内容であり、このworkspaceの資格情報ではない。
+    personal/x-bookmarks/*) continue ;;
+    esac
     printf '%s\0' "$path" >>"$paths_file"
 done <"$files_from"
 

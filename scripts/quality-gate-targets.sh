@@ -114,11 +114,28 @@ write_scope_paths() {
     esac
 }
 
+# stagedのindex列挙を1回にまとめる。path単位でgitを起動すると、数千件の
+# ステージで数十秒かかる。
+declare -A staged_index_paths=()
+staged_index_paths_loaded=0
+load_staged_index_paths() {
+    [[ "$staged_index_paths_loaded" -eq 0 ]] || return 0
+    staged_index_paths_loaded=1
+    local record path
+    while IFS= read -r -d '' record; do
+        [[ -n "$record" ]] || continue
+        path="${record#*$'\t'}"
+        [[ -n "$path" ]] || continue
+        staged_index_paths["p_$path"]=1
+    done < <(git -C "$repo" ls-files -s -z)
+}
+
 scope_path_exists() {
     local path="$1"
     case "$mode" in
     staged)
-        [[ -n "$(git -C "$repo" ls-files --stage -- "$path")" ]]
+        load_staged_index_paths
+        [[ -n "${staged_index_paths[p_$path]+x}" ]]
         ;;
     changed)
         git -C "$repo" cat-file -e "$head:$path" 2>/dev/null
